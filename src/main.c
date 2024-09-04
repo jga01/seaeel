@@ -35,8 +35,8 @@
 float delta_time = 0.0f;
 float last_time = 0.0f;
 
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
+#define WINDOW_WIDTH 1280
+#define WINDOW_HEIGHT 720
 
 camera c;
 float lastx = WINDOW_WIDTH / 2.0f;
@@ -44,14 +44,25 @@ float lasty = WINDOW_HEIGHT / 2.0f;
 bool first_mouse = true;
 
 bool release_cursor = false;
-
 int debugMode = 0;
+
+animator animator_vampire;
+animator animator_mannequin;
 
 void mouse_callback(GLFWwindow *window, double xpos, double ypos);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
+void glfw_error_callback(int error, const char *description);
 
-void process_input(GLFWwindow *window);
+void process_input(GLFWwindow *window, float delta_time);
+
+struct
+{
+    model *m;
+    vec3 position;
+    animation current_animation;
+    animation animations[2];
+} character = {0};
 
 int main(int argc, char **argv)
 {
@@ -63,8 +74,8 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Hello World!", NULL, NULL);
@@ -86,6 +97,7 @@ int main(int argc, char **argv)
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
     glfwSetKeyCallback(window, key_callback);
+    glfwSetErrorCallback(glfw_error_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glfwSwapInterval(0);
@@ -101,59 +113,18 @@ int main(int argc, char **argv)
     texture container_diff = texture_create("../assets/container2.png", DIFFUSE);
     texture container_spec = texture_create("../assets/container2_specular.png", SPECULAR);
 
-    model backpack = model_load("../assets/backpack/backpack.obj");
-    model nanosuit = model_load("../assets/nanosuit/nanosuit.obj");
-    model planet = model_load("../assets/planet/planet.obj");
-    model cyborg = model_load("../assets/cyborg/cyborg.obj");
     model vampire = model_load("../assets/vampire/dancing_vampire.dae");
-    model steve = model_load("../assets/steve/steve.obj");
-    model banjoo = model_load("../assets/banjoo/scene.gltf");
-
     animation dance_animation = animation_create("../assets/vampire/dancing_vampire.dae", &vampire);
-    animator animator;
-    animator_create(&animator, &dance_animation);
+    animator_create(&animator_vampire);
 
-    vec3 cubePositions[] = {
-        {0.0f, 0.0f, 0.0f},
-        {2.0f, 5.0f, -15.0f},
-        {-1.5f, -2.2f, -2.5f},
-        {-3.8f, -2.0f, -12.3f},
-        {2.4f, -0.4f, -3.5f},
-        {-1.7f, 3.0f, -7.5f},
-        {1.3f, -2.0f, -2.5f},
-        {1.5f, 2.0f, -2.5f},
-        {1.5f, 0.2f, -1.5f},
-        {-1.3f, 1.0f, -1.5f}};
+    model mannequin = model_load("../assets/mannequin/mannequin.dae");
+    animation walking_animation = animation_create("../assets/mannequin/Walking.dae", &mannequin);
+    animation idle_animation = animation_create("../assets/mannequin/Idle.dae", &mannequin);
+    animator_create(&animator_mannequin);
 
-    point_light pointLights[] = {
-        {.position = {0.7f, 0.2f, 2.0f},
-         .ambient = {0.05f, 0.05f, 0.05f},
-         .diffuse = {0.8f, 0.8f, 0.8f},
-         .specular = {1.0f, 1.0f, 1.0f},
-         .constant = 1.0f,
-         .linear = 0.09f,
-         .quadratic = 0.032f},
-        {.position = {2.3f, -3.3f, -4.0f},
-         .ambient = {0.05f, 0.05f, 0.05f},
-         .diffuse = {0.8f, 0.8f, 0.8f},
-         .specular = {1.0f, 1.0f, 1.0f},
-         .constant = 1.0f,
-         .linear = 0.09f,
-         .quadratic = 0.032f},
-        {.position = {4.0f, 2.0f, -12.0f},
-         .ambient = {0.05f, 0.05f, 0.05f},
-         .diffuse = {0.8f, 0.8f, 0.8f},
-         .specular = {1.0f, 1.0f, 1.0f},
-         .constant = 1.0f,
-         .linear = 0.09f,
-         .quadratic = 0.032f},
-        {.position = {0.0f, 0.0f, -3.0f},
-         .ambient = {0.05f, 0.05f, 0.05f},
-         .diffuse = {0.8f, 0.8f, 0.8f},
-         .specular = {1.0f, 1.0f, 1.0f},
-         .constant = 1.0f,
-         .linear = 0.09f,
-         .quadratic = 0.032f}};
+    character.m = &mannequin;
+
+    model arena = model_load("../assets/geonosis_arena/scene.gltf");
 
     struct nk_context *ctx;
     ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
@@ -162,16 +133,6 @@ int main(int argc, char **argv)
         nk_glfw3_font_stash_begin(&atlas);
         nk_glfw3_font_stash_end();
     };
-
-    unsigned int lightVAO;
-    glGenVertexArrays(1, &lightVAO);
-    glBindVertexArray(lightVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, cube_vbo);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void *)(5 * sizeof(float)));
-    glEnableVertexAttribArray(2);
-    glBindVertexArray(0);
 
     camera_init(&c);
 
@@ -182,10 +143,17 @@ int main(int argc, char **argv)
     struct nk_color clear_color = {51, 76, 76, 255};
     float cube_shininess = 32.0f;
     int enable_directional_light = true;
-    int enable_point_lights = true;
+    int enable_point_lights = false;
     int enable_spot_light = true;
 
     int c_debug = 0;
+
+    play_animation(&animator_vampire, &dance_animation, true);
+    play_animation(&animator_mannequin, &idle_animation, true);
+
+    character.current_animation = idle_animation;
+    character.animations[0] = idle_animation;
+    character.animations[1] = walking_animation;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -203,22 +171,15 @@ int main(int argc, char **argv)
             frames = 0;
         }
 
-        update_animation(&animator, delta_time);
-
-        // if (c_debug < 2)
-        // {
-        //     for (int i = 0; i < 100; i++)
-        //         glm_mat4_print(animator.final_bone_matrices[i], stdout);
-        //         printf("END\n\n\n\n");
-        //     c_debug++;
-        // }
+        update_animation(&animator_vampire, delta_time);
+        update_animation(&animator_mannequin, delta_time);
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         const float ratio = width / (float)height;
         glViewport(0, 0, width, height);
 
-        process_input(window);
+        process_input(window, delta_time);
 
         /* Rendering my stuff */
         glClearColor(clear_color.r / 255.0f, clear_color.g / 255.0f, clear_color.b / 255.0f, clear_color.a / 255.0f);
@@ -242,33 +203,6 @@ int main(int argc, char **argv)
         shader_set_vec3(colors, "dirLight.diffuse", (vec3){clear_color.r / 255.0f * 0.8f, clear_color.g / 255.0f * 0.8f, clear_color.b / 255.0f * 0.8f});
         shader_set_vec3(colors, "dirLight.specular", (vec3){clear_color.r / 255.0f, clear_color.g / 255.0f, clear_color.b / 255.0f});
 
-        /* Point Lights */
-        int i;
-        char uniformName[64];
-        for (i = 0; i < 4; i++)
-        {
-            snprintf(uniformName, sizeof(uniformName), "pointLights[%d].position", i);
-            shader_set_vec3(colors, uniformName, pointLights[i].position);
-
-            snprintf(uniformName, sizeof(uniformName), "pointLights[%d].ambient", i);
-            shader_set_vec3(colors, uniformName, pointLights[i].ambient);
-
-            snprintf(uniformName, sizeof(uniformName), "pointLights[%d].diffuse", i);
-            shader_set_vec3(colors, uniformName, pointLights[i].diffuse);
-
-            snprintf(uniformName, sizeof(uniformName), "pointLights[%d].specular", i);
-            shader_set_vec3(colors, uniformName, pointLights[i].specular);
-
-            snprintf(uniformName, sizeof(uniformName), "pointLights[%d].constant", i);
-            shader_set_float(colors, uniformName, pointLights[i].constant);
-
-            snprintf(uniformName, sizeof(uniformName), "pointLights[%d].linear", i);
-            shader_set_float(colors, uniformName, pointLights[i].linear);
-
-            snprintf(uniformName, sizeof(uniformName), "pointLights[%d].quadratic", i);
-            shader_set_float(colors, uniformName, pointLights[i].quadratic);
-        }
-
         /* Spotlight */
         shader_set_vec3(colors, "spotLight.position", c.position);
         shader_set_vec3(colors, "spotLight.direction", c.front);
@@ -286,98 +220,35 @@ int main(int argc, char **argv)
         shader_set_mat4(colors, "projection", &proj[0][0]);
 
         mat4 view = GLM_MAT4_IDENTITY_INIT;
-        camera_get_view_matrix(&c, view);
+        // camera_get_view_matrix(&c, view);
+        vec3 target;
+        glm_vec3_add(character.position, (vec3){0.0f, 1.5f, -2.0f}, c.position);
+        glm_vec3_copy(character.position, target);
+        glm_lookat(c.position, target, c.up, view);
         shader_set_mat4(colors, "view", &view[0][0]);
 
-        /* Rendering cubes */
-        glActiveTexture(GL_TEXTURE0);
-        texture_bind(container_diff);
-        glActiveTexture(GL_TEXTURE1);
-        texture_bind(container_spec);
-        glBindVertexArray(cube_vao);
-        for (unsigned int i = 0; i < 10; i++)
+        // /* Arena */
+        // {
+        //     mat4 model = GLM_MAT4_IDENTITY_INIT;
+        //     glm_scale(model, (vec3){0.01f, 0.01f, 0.01f});
+
+        //     mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
+        //     glm_mat4_inv(model, normalMatrix);
+        //     glm_mat4_transpose(normalMatrix);
+        //     shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
+
+        //     shader_set_int(colors, "animate", 0);
+        //     shader_set_mat4(colors, "model", &model[0][0]);
+        //     model_draw(arena, colors);
+        // }
+
+        /* Vampire */
+        mat4 *transforms = animator_vampire.final_bone_matrices;
+
+        for (int i = 0; i < animator_vampire.num_matrices; ++i)
         {
-            mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, cubePositions[i]);
-            if (i % 3)
-                glm_rotate(model, (float)glfwGetTime() * glm_rad(50.0f), (vec3){1.0f, 0.3f, 0.5f});
-
-            mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
-            glm_mat4_inv(model, normalMatrix);
-            glm_mat4_transpose(normalMatrix);
-            shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
-
-            shader_set_mat4(colors, "model", &model[0][0]);
-
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
-
-        {
-            mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, (vec3){0.0f, 0.0f, 3.0f});
-            glm_scale(model, (vec3){0.25f, 0.25f, 0.25f});
-            glm_rotate(model, glfwGetTime() / 10.0f, (vec3){0.0f, 1.0f, 0.0f});
-
-            mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
-            glm_mat4_inv(model, normalMatrix);
-            glm_mat4_transpose(normalMatrix);
-            shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
-
-            shader_set_mat4(colors, "model", &model[0][0]);
-            model_draw(backpack, colors);
-        }
-
-        {
-            mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, (vec3){0.0f, 0.0f, 6.0f});
-            glm_scale(model, (vec3){0.25f, 0.25f, 0.25f});
-            glm_rotate(model, glfwGetTime() / 10.0f, (vec3){0.0f, 1.0f, 0.0f});
-
-            mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
-            glm_mat4_inv(model, normalMatrix);
-            glm_mat4_transpose(normalMatrix);
-            shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
-
-            shader_set_mat4(colors, "model", &model[0][0]);
-            model_draw(nanosuit, colors);
-        }
-
-        {
-            mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, (vec3){0.0f, 0.0f, 9.0f});
-            glm_scale(model, (vec3){0.25f, 0.25f, 0.25f});
-            glm_rotate(model, glfwGetTime() / 10.0f, (vec3){0.0f, 1.0f, 0.0f});
-
-            mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
-            glm_mat4_inv(model, normalMatrix);
-            glm_mat4_transpose(normalMatrix);
-            shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
-
-            shader_set_mat4(colors, "model", &model[0][0]);
-            model_draw(planet, colors);
-        }
-
-        {
-            mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, (vec3){0.0f, 0.0f, 12.0f});
-            glm_scale(model, (vec3){0.25f, 0.25f, 0.25f});
-            glm_rotate(model, glfwGetTime() / 10.0f, (vec3){0.0f, 1.0f, 0.0f});
-
-            mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
-            glm_mat4_inv(model, normalMatrix);
-            glm_mat4_transpose(normalMatrix);
-            shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
-
-            shader_set_mat4(colors, "model", &model[0][0]);
-            model_draw(cyborg, colors);
-        }
-
-        mat4 *transforms = animator.final_bone_matrices;
-
-        for (int i = 0; i < animator.num_matrices; ++i)
-        {
-            char location[64];
-            sprintf(location, "finalBoneMatrices[%d]", i);
+            char location[64] = {0};
+            sprintf(location, "finalBonesMatrices[%d]", i);
             mat4 t;
             glm_mat4_copy(transforms[i], t);
             shader_set_mat4(colors, location, &t[0][0]);
@@ -387,62 +258,42 @@ int main(int argc, char **argv)
             mat4 model = GLM_MAT4_IDENTITY_INIT;
             glm_translate(model, (vec3){0.0f, 0.0f, 1.0f});
             glm_scale(model, (vec3){0.005f, 0.005f, 0.005f});
-            glm_rotate(model, glfwGetTime() / 10.0f, (vec3){0.0f, 1.0f, 0.0f});
 
             mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
             glm_mat4_inv(model, normalMatrix);
             glm_mat4_transpose(normalMatrix);
             shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
-            
+
+            shader_set_int(colors, "animate", 1);
             shader_set_mat4(colors, "model", &model[0][0]);
             model_draw(vampire, colors);
         }
 
+        /* Mannequin */
+        transforms = animator_mannequin.final_bone_matrices;
+
+        for (int i = 0; i < animator_mannequin.num_matrices; ++i)
+        {
+            char location[64] = {0};
+            sprintf(location, "finalBonesMatrices[%d]", i);
+            mat4 t;
+            glm_mat4_copy(transforms[i], t);
+            shader_set_mat4(colors, location, &t[0][0]);
+        }
+
         {
             mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, (vec3){0.0f, 0.0f, 15.0f});
-            glm_scale(model, (vec3){0.001f, 0.001f, 0.001f});
-            glm_rotate(model, glfwGetTime() / 10.0f, (vec3){0.0f, 1.0f, 0.0f});
+            glm_translate(model, character.position);
+            glm_scale(model, (vec3){0.005f, 0.005f, 0.005f});
 
             mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
             glm_mat4_inv(model, normalMatrix);
             glm_mat4_transpose(normalMatrix);
             shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
 
+            shader_set_int(colors, "animate", 1);
             shader_set_mat4(colors, "model", &model[0][0]);
-            model_draw(steve, colors);
-        }
-
-        {
-            mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, (vec3){0.0f, 0.0f, 18.0f});
-            glm_scale(model, (vec3){1.0f, 1.0f, 1.0f});
-            glm_rotate(model, glfwGetTime() / 10.0f, (vec3){0.0f, 1.0f, 0.0f});
-
-            mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
-            glm_mat4_inv(model, normalMatrix);
-            glm_mat4_transpose(normalMatrix);
-            shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
-
-            shader_set_mat4(colors, "model", &model[0][0]);
-            model_draw(banjoo, colors);
-        }
-
-        /* Rendering lights */
-        {
-            shader_use(lights);
-            shader_set_mat4(lights, "projection", &proj[0][0]);
-            shader_set_mat4(lights, "view", &view[0][0]);
-            glBindVertexArray(lightVAO);
-            for (unsigned int i = 0; i < 4; i++)
-            {
-                mat4 model = GLM_MAT4_IDENTITY_INIT;
-                glm_translate(model, pointLights[i].position);
-                glm_scale(model, (vec3){0.2f, 0.2f, 0.2f});
-                shader_set_mat4(lights, "model", &model[0][0]);
-                shader_set_vec3(lights, "lightColor", (vec3){1.0f, 1.0f, 1.0f});
-                glDrawArrays(GL_TRIANGLES, 0, 36);
-            }
+            model_draw(mannequin, colors);
         }
         /* End of rendering my stuff */
 
@@ -520,7 +371,7 @@ int main(int argc, char **argv)
     quad_cleanup();
     cube_cleanup();
 
-    nk_glfw3_shutdown();
+    // nk_glfw3_shutdown();
     glfwDestroyWindow(window);
     glfwTerminate();
     return 0;
@@ -563,8 +414,10 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
     camera_process_mouse_scroll(&c, (float)yoffset);
 }
 
-void process_input(GLFWwindow *window)
+void process_input(GLFWwindow *window, float delta_time)
 {
+    bool idle = true;
+
     if (keys[GLFW_KEY_ESCAPE])
         glfwSetWindowShouldClose(window, true);
 
@@ -581,11 +434,17 @@ void process_input(GLFWwindow *window)
 
     if (keys[GLFW_KEY_W])
     {
-        camera_process_keyboard(&c, FORWARD, delta_time);
+        character.position[2] += 0.75f * delta_time;
+        c.position[2] += 0.75f * delta_time;
+        play_animation(&animator_mannequin, &character.animations[1], true);
+        idle = false;
     }
     if (keys[GLFW_KEY_S])
     {
-        camera_process_keyboard(&c, BACKWARD, delta_time);
+        character.position[2] -= 0.75f * delta_time;
+        c.position[2] -= 0.75f * delta_time;
+        play_animation(&animator_mannequin, &character.animations[1], true);
+        idle = false;
     }
     if (keys[GLFW_KEY_A])
     {
@@ -595,4 +454,13 @@ void process_input(GLFWwindow *window)
     {
         camera_process_keyboard(&c, RIGHT, delta_time);
     }
+
+    if (idle) {
+		play_animation(&animator_mannequin, &character.animations[0], true);
+	}
+}
+
+void glfw_error_callback(int error, const char *description)
+{
+    fprintf(stderr, "GLFW Error (%d): %s\n", error, description);
 }

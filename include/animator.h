@@ -193,7 +193,7 @@ void play_animation(animator *a, animation *pAnimation, int repeat)
     }
 }
 
-void animator_create(animator *anim, animation *a)
+void animator_create(animator *anim)
 {
     anim->final_bone_matrices = calloc(100, sizeof(mat4));
     if (!anim->final_bone_matrices)
@@ -208,8 +208,6 @@ void animator_create(animator *anim, animation *a)
     }
 
     anim->num_matrices = 100;
-
-    play_animation(anim, a, true);
 }
 
 void print_matrix(const float matrix[4][4], const char *title)

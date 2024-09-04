@@ -33,14 +33,14 @@ void set_vertex_bone_data_to_default(vertex *v)
     }
 }
 
-void set_vertex_bone_data(vertex *v, int bone_id, float weight)
+void set_vertex_bone_data(vertex *v, int v_id, int bone_id, float weight)
 {
     for (int i = 0; i < MAX_BONE_INFLUENCE; ++i) /* check if pre incrementing breaks anything */
     {
-        if (v->m_bone_ids[i] < 0)
+        if (v[v_id].m_bone_ids[i] < 0)
         {
-            v->m_weights[i] = weight;
-            v->m_bone_ids[i] = bone_id;
+            v[v_id].m_weights[i] = weight;
+            v[v_id].m_bone_ids[i] = bone_id;
             break;
         }
     }
@@ -49,22 +49,10 @@ void set_vertex_bone_data(vertex *v, int bone_id, float weight)
 void ai_matrix_to_glm_mat4(const struct aiMatrix4x4 *from, mat4 to)
 {
     /* Assimp matrices are row-major, while GLM expects column-major */
-    to[0][0] = from->a1;
-    to[1][0] = from->a2;
-    to[2][0] = from->a3;
-    to[3][0] = from->a4;
-    to[0][1] = from->b1;
-    to[1][1] = from->b2;
-    to[2][1] = from->b3;
-    to[3][1] = from->b4;
-    to[0][2] = from->c1;
-    to[1][2] = from->c2;
-    to[2][2] = from->c3;
-    to[3][2] = from->c4;
-    to[0][3] = from->d1;
-    to[1][3] = from->d2;
-    to[2][3] = from->d3;
-    to[3][3] = from->d4;
+		to[0][0] = from->a1; to[1][0] = from->a2; to[2][0] = from->a3; to[3][0] = from->a4;
+		to[0][1] = from->b1; to[1][1] = from->b2; to[2][1] = from->b3; to[3][1] = from->b4;
+		to[0][2] = from->c1; to[1][2] = from->c2; to[2][2] = from->c3; to[3][2] = from->c4;
+		to[0][3] = from->d1; to[1][3] = from->d2; to[2][3] = from->d3; to[3][3] = from->d4;
 }
 
 void extract_bone_weight_for_vertices(vertex *vertices, struct aiMesh *mesh, model *model)
@@ -104,7 +92,7 @@ void extract_bone_weight_for_vertices(vertex *vertices, struct aiMesh *mesh, mod
 
             if (vertex_id < mesh->mNumVertices)
             {
-                set_vertex_bone_data(&vertices[vertex_id], bone_id, weight_value);
+                set_vertex_bone_data(vertices, vertex_id, bone_id, weight_value);
             }
         }
     }
