@@ -3,15 +3,15 @@
 
 #include "cglm/cglm.h"
 
-typedef struct
+struct DirectionalLight
 {
     vec3 direction;
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
-} directional_light;
+};
 
-typedef struct
+struct PointLight
 {
     vec3 position;
     float constant;
@@ -20,9 +20,9 @@ typedef struct
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
-} point_light;
+};
 
-typedef struct
+struct SpotLight
 {
     vec3 position;
     vec3 direction;
@@ -36,6 +36,6 @@ typedef struct
     vec3 ambient;
     vec3 diffuse;
     vec3 specular;
-} spot_light;
+};
 
 #endif /* LIGHT_H */

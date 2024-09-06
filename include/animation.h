@@ -10,58 +10,54 @@
 #include "bone.h"
 #include "model.h"
 
-struct assimp_node_data
+#define MAX_NAME_LEN 64
+
+struct AssimpNodeData
 {
     mat4 transformation;
-    char name[64];
-    int children_count;
-    struct assimp_node_data *children;
+    char name[MAX_NAME_LEN];
+    unsigned int children_count;
+    struct AssimpNodeData *children;
 };
 
-typedef struct animation
+struct Animation
 {
+    char name[MAX_NAME_LEN];
     float duration;
     int ticks_per_second;
-    bone bones[100];
-    int num_bones;
-    struct assimp_node_data root_node;
-    bone_info *bone_info;
-    int bone_info_size;
-} animation;
+    struct Bone bones[MAX_BONES];
+    unsigned int num_bones;
+    struct AssimpNodeData root_node;
+    struct BoneInfo *bone_info;
+    unsigned int bone_info_size;
+};
 
-void load_intermediate_bones(animation *a, const struct aiAnimation *animation, model *model)
+void seel_load_intermediate_bones(struct Animation *animation, const struct aiAnimation *ai_animation, struct Model *model)
 {
-    bone_info *bones_info = model->bone_info;
-    // if (!a->bones)
-    // {
-    //     a->bones = (bone *)malloc(sizeof(bone));
-    //     if (!a->bones)
-    //     {
-    //         fprintf(stderr, "Failed to allocate memory for bones!\n");
-    //         return;
-    //     }
-    // }
+    struct BoneInfo *bones_info = model->bone_info;
 
-    for (unsigned int i = 0; i < animation->mNumChannels; i++)
+    unsigned int i;
+    for (i = 0; i < ai_animation->mNumChannels; i++)
     {
-        struct aiNodeAnim *channel = animation->mChannels[i];
+        struct aiNodeAnim *channel = ai_animation->mChannels[i];
         char *bone_name = channel->mNodeName.data;
         int bone_id = -1;
 
-        for (unsigned int i = 0; i < model->bone_counter; i++)
+        unsigned int j;
+        for (j = 0; j < model->bone_counter; j++)
         {
-            if (!strcmp(bones_info[i].name, bone_name))
+            if (!strcmp(bones_info[j].name, bone_name))
             {
-                bone_id = i;
+                bone_id = j;
                 break;
             }
         }
 
         if (bone_id == -1)
         {
-            struct bone_info new_bone_info;
+            struct BoneInfo new_bone_info;
             strcpy(new_bone_info.name, bone_name);
-            bones_info = (bone_info *)realloc(bones_info, sizeof(bone_info) * (model->bone_counter + 1));
+            bones_info = (struct BoneInfo *)realloc(bones_info, sizeof(struct BoneInfo) * (model->bone_counter + 1));
             if (!bones_info)
             {
                 fprintf(stderr, "Failed to reallocate memory for bone info!\n");
@@ -71,108 +67,76 @@ void load_intermediate_bones(animation *a, const struct aiAnimation *animation, 
             bone_id = model->bone_counter - 1;
         }
 
-        // a->bones = (bone *)realloc(a->bones, sizeof(bone) * (a->num_bones + 1));
-        // if (!a->bones)
-        // {
-        //     fprintf(stderr, "Failed to reallocate memory for a->bones!\n");
-        //     return;
-        // }
-
-        a->bones[a->num_bones++] = bone_create(bone_name, bone_id, channel);
+        animation->bones[animation->num_bones++] = seel_bone_create(bone_name, bone_id, channel);
     }
 
-    a->bone_info = bones_info;
-    a->bone_info_size = model->bone_counter;
+    animation->bone_info = bones_info;
+    animation->bone_info_size = model->bone_counter;
 }
 
-void generate_bone_tree(struct assimp_node_data *parent, const struct aiNode *src)
+void seel_generate_bone_tree(struct AssimpNodeData *parent, const struct aiNode *src)
 {
     assert(src);
 
     strcpy(parent->name, src->mName.data);
-    ai_matrix_to_glm_mat4(&src->mTransformation, parent->transformation);
+    seel_ai_matrix_to_glm_mat4(&src->mTransformation, parent->transformation);
     parent->children_count = src->mNumChildren;
 
-    parent->children = (struct assimp_node_data *)malloc(sizeof(struct assimp_node_data) * parent->children_count);
+    parent->children = (struct AssimpNodeData *)malloc(sizeof(struct AssimpNodeData) * parent->children_count);
     if (!parent->children)
     {
         fprintf(stderr, "Failed to allocate memory for parent children bones!\n");
         return;
     }
 
-    for (unsigned int i = 0; i < src->mNumChildren; i++)
+    unsigned int i;
+    for (i = 0; i < src->mNumChildren; i++)
     {
-        generate_bone_tree(&parent->children[i], src->mChildren[i]);
+        seel_generate_bone_tree(&parent->children[i], src->mChildren[i]);
     }
 }
 
-void print_bone_tree(const struct assimp_node_data *node, int depth);
-
-animation animation_create(const char *path, model *m)
+struct Animation seel_animation_create(const char *path, struct Model *model)
 {
-    animation a = {0};
+    struct Animation animation = {0};
 
     const struct aiScene *scene = aiImportFile(path, aiProcess_Triangulate);
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
     {
         fprintf(stderr, "Failed in loading animation!\n\n%s\n", aiGetErrorString());
-        return a;
+        return animation;
     }
 
     if (scene->mNumAnimations == 0)
-        return a;
+        return animation;
 
-    struct aiAnimation *animation = scene->mAnimations[0];
-    a.duration = (float)animation->mDuration;
-    a.ticks_per_second = (float)animation->mTicksPerSecond;
-    generate_bone_tree(&a.root_node, scene->mRootNode);
-    glm_mat4_copy(GLM_MAT4_IDENTITY, a.root_node.transformation);
-    load_intermediate_bones(&a, animation, m);
+    struct aiAnimation *ai_animation = scene->mAnimations[0];
+    strcpy(animation.name, ai_animation->mName.data);
+    animation.duration = (float)ai_animation->mDuration;
+    animation.ticks_per_second = (float)ai_animation->mTicksPerSecond;
+    seel_generate_bone_tree(&animation.root_node, scene->mRootNode);
+    glm_mat4_copy(GLM_MAT4_IDENTITY, animation.root_node.transformation);
+    seel_load_intermediate_bones(&animation, ai_animation, model);
 
-    // print_bone_tree(&a.root_node, 0);
+    aiReleaseImport(scene);
 
-    return a;
+    return animation;
 }
 
-bone find_bone(animation *a, const char *name)
+struct Bone seel_find_bone(struct Animation *animation, const char *name)
 {
-    bone b = {0};
-    b.id = -1;
+    struct Bone bone = {0};
+    bone.id = -1;
 
-    for (unsigned int i = 0; i < a->num_bones; i++)
+    unsigned int i;
+    for (i = 0; i < animation->num_bones; i++)
     {
-        if (!strcmp(a->bones[i].name, name))
+        if (!strcmp(animation->bones[i].name, name))
         {
-            return a->bones[i];
+            return animation->bones[i];
         }
     }
-    return b;
-}
-
-void print_bone_tree(const struct assimp_node_data *node, int depth)
-{
-    if (!node)
-        return;
-
-    // Print the current node's name and transformation matrix
-    for (int i = 0; i < depth; i++)
-        printf("  ");  // Indentation for visual hierarchy
-    printf("Node Name: %s\n", node->name);
-    printf("Transformation Matrix:\n");
-    for (int i = 0; i < 4; i++)
-    {
-        for (int j = 0; j < 4; j++)
-        {
-            printf("%6.2f ", node->transformation[i][j]);
-        }
-        printf("\n");
-    }
-
-    // Recursively print each child node
-    for (int i = 0; i < node->children_count; i++)
-    {
-        print_bone_tree(&node->children[i], depth + 1);
-    }
+    return bone;
 }
 
 #endif /* ANIMATION_H */

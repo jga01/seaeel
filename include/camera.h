@@ -3,7 +3,7 @@
 
 #include "cglm/cglm.h"
 
-enum camera_movement
+enum CameraMovement
 {
     FORWARD,
     BACKWARD,
@@ -17,7 +17,7 @@ const float SPEED = 2.5f;
 const float SENSITIVITY = 0.1f;
 const float ZOOM = 45.0f;
 
-typedef struct
+struct Camera
 {
     vec3 position;
     vec3 front;
@@ -32,71 +32,50 @@ typedef struct
     float movement_speed;
     float mouse_sensitivity;
     float zoom;
-} camera;
+};
 
-void print_vec3(vec3 v)
-{
-    printf("vec3: [%.2f, %.2f, %.2f]\n", v[0], v[1], v[2]);
-}
-
-void camera_debug(camera *camera, const char *context)
-{
-    printf("%s\n\n", context);
-    printf("Camera Position:\n");
-    print_vec3(camera->position);
-
-    printf("Camera Front:\n");
-    print_vec3(camera->front);
-
-    printf("Camera Right:\n");
-    print_vec3(camera->right);
-
-    printf("Camera Up:\n");
-    print_vec3(camera->up);
-
-    printf("Yaw: %.2f, Pitch: %.2f\n", camera->yaw, camera->pitch);
-    printf("Zoom: %.2f\n", camera->zoom);
-    printf("\n");
-}
-
-static void camera_update_vectors(camera *c)
+static void seel_camera_update_vectors(struct Camera *camera)
 {
     vec3 front;
-    front[0] = cos(glm_rad(c->yaw)) * cos(glm_rad(c->pitch));
-    front[1] = sin(glm_rad(c->pitch));
-    front[2] = sin(glm_rad(c->yaw)) * cos(glm_rad(c->pitch));
-    glm_normalize_to(front, c->front);
-    glm_vec3_cross(c->front, c->world_up, c->right);
-    glm_vec3_normalize(c->right);
-    glm_vec3_cross(c->right, c->front, c->up);
-    glm_vec3_normalize(c->up);
+    front[0] = cos(glm_rad(camera->yaw)) * cos(glm_rad(camera->pitch));
+    front[1] = sin(glm_rad(camera->pitch));
+    front[2] = sin(glm_rad(camera->yaw)) * cos(glm_rad(camera->pitch));
+    glm_normalize_to(front, camera->front);
+    glm_vec3_cross(camera->front, camera->world_up, camera->right);
+    glm_vec3_normalize(camera->right);
+    glm_vec3_cross(camera->right, camera->front, camera->up);
+    glm_vec3_normalize(camera->up);
 }
 
-void camera_init(camera *c)
+struct Camera seel_camera_create(void)
 {
-    glm_vec3_copy((vec3){0.0f, 0.0f, 3.0f}, c->position);
-    glm_vec3_copy((vec3){0.0f, 0.0f, -1.0f}, c->front);
-    glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, c->world_up);
-    glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, c->up);
-    c->fov = 45.0f;
-    c->near_clip = 0.1f;
-    c->far_clip = 100.0f;
-    c->yaw = YAW;
-    c->pitch = PITCH;
-    c->movement_speed = SPEED;
-    c->mouse_sensitivity = SENSITIVITY;
-    c->zoom = ZOOM;
-    camera_update_vectors(c);
+    struct Camera camera;
+
+    glm_vec3_copy((vec3){0.0f, 0.0f, 3.0f}, camera.position);
+    glm_vec3_copy((vec3){0.0f, 0.0f, -1.0f}, camera.front);
+    glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, camera.world_up);
+    glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, camera.up);
+    camera.fov = 45.0f;
+    camera.near_clip = 0.1f;
+    camera.far_clip = 100.0f;
+    camera.yaw = YAW;
+    camera.pitch = PITCH;
+    camera.movement_speed = SPEED;
+    camera.mouse_sensitivity = SENSITIVITY;
+    camera.zoom = ZOOM;
+    seel_camera_update_vectors(&camera);
+
+    return camera;
 }
 
-void camera_get_view_matrix(camera *c, mat4 m)
+void seel_camera_get_view_matrix(struct Camera *camera, mat4 matrix)
 {
     vec3 center;
-    glm_vec3_add(c->position, c->front, center);
-    glm_lookat(c->position, center, c->up, m);
+    glm_vec3_add(camera->position, camera->front, center);
+    glm_lookat(camera->position, center, camera->up, matrix);
 }
 
-void camera_process_keyboard(camera *c, enum camera_movement direction, float delta)
+void seel_camera_process_keyboard(struct Camera *c, enum CameraMovement direction, float delta)
 {
     float velocity = c->movement_speed * delta;
     if (direction == FORWARD)
@@ -109,32 +88,32 @@ void camera_process_keyboard(camera *c, enum camera_movement direction, float de
         glm_vec3_muladds(c->right, velocity, c->position);
 }
 
-void camera_process_mouse_movement(camera *c, float xoffset, float yoffset, unsigned char constrain_pitch)
+void seel_camera_process_mouse_movement(struct Camera *camera, float xoffset, float yoffset, unsigned char constrain_pitch)
 {
-    xoffset *= c->mouse_sensitivity;
-    yoffset *= c->mouse_sensitivity;
+    xoffset *= camera->mouse_sensitivity;
+    yoffset *= camera->mouse_sensitivity;
 
-    c->yaw += xoffset;
-    c->pitch += yoffset;
+    camera->yaw += xoffset;
+    camera->pitch += yoffset;
 
     if (constrain_pitch)
     {
-        if (c->pitch > 89.0f)
-            c->pitch = 89.0f;
-        if (c->pitch < -89.0f)
-            c->pitch = -89.0f;
+        if (camera->pitch > 89.0f)
+            camera->pitch = 89.0f;
+        if (camera->pitch < -89.0f)
+            camera->pitch = -89.0f;
     }
 
-    camera_update_vectors(c);
+    seel_camera_update_vectors(camera);
 }
 
-void camera_process_mouse_scroll(camera *c, float yoffset)
+void seel_camera_process_mouse_scroll(struct Camera *camera, float yoffset)
 {
-    c->zoom -= (float)yoffset;
-    if (c->zoom < 1.0f)
-        c->zoom = 1.0f;
-    if (c->zoom > 45.0f)
-        c->zoom = 45.0f;
+    camera->zoom -= (float)yoffset;
+    if (camera->zoom < 1.0f)
+        camera->zoom = 1.0f;
+    if (camera->zoom > 45.0f)
+        camera->zoom = 45.0f;
 }
 
 #endif /* CAMERA_H */

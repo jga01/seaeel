@@ -21,14 +21,15 @@
 #define MAX_VERTEX_BUFFER 512 * 1024
 #define MAX_ELEMENT_BUFFER 128 * 1024
 
+#include "../include/error.h"
 #include "../include/shader.h"
-#include "../include/quad.h"
 #include "../include/texture.h"
 #include "../include/camera.h"
 #include "../include/input.h"
 #include "../include/light.h"
 #include "../include/model.h"
 #include "../include/animator.h"
+#include "../include/text.h"
 
 #include "../include/cglm/cglm.h"
 
@@ -38,7 +39,7 @@ float last_time = 0.0f;
 #define WINDOW_WIDTH 1280
 #define WINDOW_HEIGHT 720
 
-camera c;
+struct Camera c;
 float lastx = WINDOW_WIDTH / 2.0f;
 float lasty = WINDOW_HEIGHT / 2.0f;
 bool first_mouse = true;
@@ -46,22 +47,22 @@ bool first_mouse = true;
 bool release_cursor = false;
 int debugMode = 0;
 
-animator animator_vampire;
-animator animator_mannequin;
+struct Animator animator_vampire;
+struct Animator animator_vampire;
 
-void mouse_callback(GLFWwindow *window, double xpos, double ypos);
-void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
+void seel_mouse_callback(GLFWwindow *window, double xpos, double ypos);
+void seel_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
+void seel_scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 void glfw_error_callback(int error, const char *description);
 
-void process_input(GLFWwindow *window, float delta_time);
+void seel_process_input(GLFWwindow *window, float delta_time);
 
 struct
 {
-    model *m;
+    struct Model *m;
     vec3 position;
-    animation current_animation;
-    animation animations[2];
+    struct Animation current_animation;
+    struct Animation animations[3];
 } character = {0};
 
 int main(int argc, char **argv)
@@ -77,6 +78,7 @@ int main(int argc, char **argv)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 
     window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Hello World!", NULL, NULL);
     if (!window)
@@ -94,66 +96,46 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
-    glfwSetKeyCallback(window, key_callback);
+    glfwSetCursorPosCallback(window, seel_mouse_callback);
+    glfwSetScrollCallback(window, seel_scroll_callback);
+    glfwSetKeyCallback(window, seel_key_callback);
     glfwSetErrorCallback(glfw_error_callback);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glfwSwapInterval(0);
 
-    triangle_init();
-    quad_init();
-    cube_init();
-
-    shader colors = program_create("../shaders/colors.vs", "../shaders/colors.fs");
-    shader lights = program_create("../shaders/lights.vs", "../shaders/lights.fs");
-
-    texture_init_stb();
-    texture container_diff = texture_create("../assets/container2.png", DIFFUSE);
-    texture container_spec = texture_create("../assets/container2_specular.png", SPECULAR);
-
-    model vampire = model_load("../assets/vampire/dancing_vampire.dae");
-    animation dance_animation = animation_create("../assets/vampire/dancing_vampire.dae", &vampire);
-    animator_create(&animator_vampire);
-
-    model mannequin = model_load("../assets/mannequin/mannequin.dae");
-    animation walking_animation = animation_create("../assets/mannequin/Walking.dae", &mannequin);
-    animation idle_animation = animation_create("../assets/mannequin/Idle.dae", &mannequin);
-    animator_create(&animator_mannequin);
-
-    character.m = &mannequin;
-
-    model arena = model_load("../assets/geonosis_arena/scene.gltf");
-
     struct nk_context *ctx;
-    ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
-    {
-        struct nk_font_atlas *atlas;
-        nk_glfw3_font_stash_begin(&atlas);
-        nk_glfw3_font_stash_end();
-    };
 
-    camera_init(&c);
+    c = seel_camera_create();
+    seel_texture_init_stb();
+    seel_freetype_init();
+    // ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS, MAX_VERTEX_BUFFER, MAX_ELEMENT_BUFFER);
+    // {
+    //     struct nk_font_atlas *atlas;
+    //     nk_glfw3_font_stash_begin(&atlas);
+    //     nk_glfw3_font_stash_end();
+    // };
+
+    struct Shader dft = seel_shader_create("../shaders/default.vert", "../shaders/default.frag");
+    struct Shader lights = seel_shader_create("../shaders/lights.vert", "../shaders/lights.frag");
+    struct Shader text = seel_shader_create("../shaders/text.vert", "../shaders/text.frag");
+
+    struct Model vampire = seel_model_load("../assets/models/vampire/dancing_vampire.dae");
+    struct Animation dancing_animation = seel_animation_create("../assets/models/vampire/dancing_vampire.dae", &vampire);
+    seel_animator_create(&animator_vampire);
+    character.m = &vampire;
 
     int frames = 0;
     float lastFrame = (float)glfwGetTime();
 
     /* Scene properties */
-    struct nk_color clear_color = {51, 76, 76, 255};
+    struct nk_color clear_color = {55, 81, 55, 255};
     float cube_shininess = 32.0f;
     int enable_directional_light = true;
     int enable_point_lights = false;
     int enable_spot_light = true;
 
-    int c_debug = 0;
-
-    play_animation(&animator_vampire, &dance_animation, true);
-    play_animation(&animator_mannequin, &idle_animation, true);
-
-    character.current_animation = idle_animation;
-    character.animations[0] = idle_animation;
-    character.animations[1] = walking_animation;
+    seel_play_animation(&animator_vampire, &dancing_animation, true);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -171,205 +153,111 @@ int main(int argc, char **argv)
             frames = 0;
         }
 
-        update_animation(&animator_vampire, delta_time);
-        update_animation(&animator_mannequin, delta_time);
+        seel_update_animation(&animator_vampire, delta_time);
 
         int width, height;
         glfwGetFramebufferSize(window, &width, &height);
         const float ratio = width / (float)height;
         glViewport(0, 0, width, height);
 
-        process_input(window, delta_time);
+        seel_process_input(window, delta_time);
 
         /* Rendering my stuff */
         glClearColor(clear_color.r / 255.0f, clear_color.g / 255.0f, clear_color.b / 255.0f, clear_color.a / 255.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_BLEND);
+        glEnable(GL_DEBUG_OUTPUT);
+        glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+        glDebugMessageCallback(seel_gl_debug_output, NULL);
+        glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        shader_use(colors);
-        shader_set_vec3(colors, "viewPos", c.position);
-        shader_set_float(colors, "material.shininess", cube_shininess);
-        shader_set_int(colors, "material.diffuse1", 0);
-        shader_set_int(colors, "material.specular1", 1);
+        float tex_start_y = (float)height - 10.0f;
+        seel_render_text(text, "Seaeel Engine 0.1v", 10.0f, tex_start_y - 25.0f, 0.5f, (vec3){1.0f, 1.0f, 1.0f}, width, height);
+        char fps_text[32];
+        sprintf(fps_text, "Framerate: %.f", framerate);
+        seel_render_text(text, fps_text, 10.0f, tex_start_y - 50.0f, 0.5f, (vec3){1.0f, 1.0f, 1.0f}, width, height);
 
-        shader_set_int(colors, "enableDirectionalLight", enable_directional_light);
-        shader_set_int(colors, "enablePointLights", enable_point_lights);
-        shader_set_int(colors, "enableSpotLight", enable_spot_light);
-        shader_set_int(colors, "debugLighting", debugMode);
+        seel_shader_use(dft);
+        seel_shader_set_vec3(dft, "viewPos", c.position);
+        seel_shader_set_float(dft, "material.shininess", cube_shininess);
+        seel_shader_set_int(dft, "material.diffuse1", 0);
+        seel_shader_set_int(dft, "material.specular1", 1);
+
+        seel_shader_set_int(dft, "enableDirectionalLight", enable_directional_light);
+        seel_shader_set_int(dft, "enablePointLights", enable_point_lights);
+        seel_shader_set_int(dft, "enableSpotLight", enable_spot_light);
+        seel_shader_set_int(dft, "debugLighting", debugMode);
 
         /* Directional Light */
-        shader_set_vec3(colors, "dirLight.direction", (vec3){-0.2f, -1.0f, -0.3f});
-        shader_set_vec3(colors, "dirLight.ambient", (vec3){clear_color.r / 255.0f / 10.0f, clear_color.g / 255.0f / 10.0f, clear_color.b / 255.0f / 10.0f});
-        shader_set_vec3(colors, "dirLight.diffuse", (vec3){clear_color.r / 255.0f * 0.8f, clear_color.g / 255.0f * 0.8f, clear_color.b / 255.0f * 0.8f});
-        shader_set_vec3(colors, "dirLight.specular", (vec3){clear_color.r / 255.0f, clear_color.g / 255.0f, clear_color.b / 255.0f});
+        seel_shader_set_vec3(dft, "dirLight.direction", (vec3){-0.2f, -1.0f, -0.3f});
+        seel_shader_set_vec3(dft, "dirLight.ambient", (vec3){clear_color.r / 255.0f / 10.0f, clear_color.g / 255.0f / 10.0f, clear_color.b / 255.0f / 10.0f});
+        seel_shader_set_vec3(dft, "dirLight.diffuse", (vec3){clear_color.r / 255.0f * 0.8f, clear_color.g / 255.0f * 0.8f, clear_color.b / 255.0f * 0.8f});
+        seel_shader_set_vec3(dft, "dirLight.specular", (vec3){clear_color.r / 255.0f, clear_color.g / 255.0f, clear_color.b / 255.0f});
 
         /* Spotlight */
-        shader_set_vec3(colors, "spotLight.position", c.position);
-        shader_set_vec3(colors, "spotLight.direction", c.front);
-        shader_set_vec3(colors, "spotLight.ambient", (vec3){0.0f, 0.0f, 0.0f});
-        shader_set_vec3(colors, "spotLight.diffuse", (vec3){1.0f, 1.0f, 1.0f});
-        shader_set_vec3(colors, "spotLight.specular", (vec3){1.0f, 1.0f, 1.0f});
-        shader_set_float(colors, "spotLight.constant", 1.0f);
-        shader_set_float(colors, "spotLight.linear", 0.09f);
-        shader_set_float(colors, "spotLight.quadratic", 0.032f);
-        shader_set_float(colors, "spotLight.cutOff", cosf(glm_rad(12.5f)));
-        shader_set_float(colors, "spotLight.outerCutOff", cosf(glm_rad(15.0f)));
+        seel_shader_set_vec3(dft, "spotLight.position", c.position);
+        seel_shader_set_vec3(dft, "spotLight.direction", c.front);
+        seel_shader_set_vec3(dft, "spotLight.ambient", (vec3){0.0f, 0.0f, 0.0f});
+        seel_shader_set_vec3(dft, "spotLight.diffuse", (vec3){1.0f, 1.0f, 1.0f});
+        seel_shader_set_vec3(dft, "spotLight.specular", (vec3){1.0f, 1.0f, 1.0f});
+        seel_shader_set_float(dft, "spotLight.constant", 1.0f);
+        seel_shader_set_float(dft, "spotLight.linear", 0.09f);
+        seel_shader_set_float(dft, "spotLight.quadratic", 0.032f);
+        seel_shader_set_float(dft, "spotLight.cutOff", cosf(glm_rad(12.5f)));
+        seel_shader_set_float(dft, "spotLight.outerCutOff", cosf(glm_rad(15.0f)));
 
         mat4 proj = GLM_MAT4_IDENTITY_INIT;
         glm_perspective(glm_rad(c.zoom), (float)width / (float)height, c.near_clip, c.far_clip, proj);
-        shader_set_mat4(colors, "projection", &proj[0][0]);
+        seel_shader_set_mat4(dft, "projection", &proj[0][0]);
 
         mat4 view = GLM_MAT4_IDENTITY_INIT;
-        // camera_get_view_matrix(&c, view);
-        vec3 target;
-        glm_vec3_add(character.position, (vec3){0.0f, 1.5f, -2.0f}, c.position);
-        glm_vec3_copy(character.position, target);
-        glm_lookat(c.position, target, c.up, view);
-        shader_set_mat4(colors, "view", &view[0][0]);
+        seel_camera_get_view_matrix(&c, view);
+        seel_shader_set_mat4(dft, "view", &view[0][0]);
 
-        // /* Arena */
-        // {
-        //     mat4 model = GLM_MAT4_IDENTITY_INIT;
-        //     glm_scale(model, (vec3){0.01f, 0.01f, 0.01f});
+        mat4 *transforms = NULL;
 
-        //     mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
-        //     glm_mat4_inv(model, normalMatrix);
-        //     glm_mat4_transpose(normalMatrix);
-        //     shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
+        /* vampire */
+        transforms = animator_vampire.final_bone_matrices;
 
-        //     shader_set_int(colors, "animate", 0);
-        //     shader_set_mat4(colors, "model", &model[0][0]);
-        //     model_draw(arena, colors);
-        // }
-
-        /* Vampire */
-        mat4 *transforms = animator_vampire.final_bone_matrices;
-
-        for (int i = 0; i < animator_vampire.num_matrices; ++i)
+        for (int i = 0; i < animator_vampire.num_matrices; i++)
         {
             char location[64] = {0};
             sprintf(location, "finalBonesMatrices[%d]", i);
             mat4 t;
             glm_mat4_copy(transforms[i], t);
-            shader_set_mat4(colors, location, &t[0][0]);
+            seel_shader_set_mat4(dft, location, &t[0][0]);
         }
 
         {
             mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, (vec3){0.0f, 0.0f, 1.0f});
-            glm_scale(model, (vec3){0.005f, 0.005f, 0.005f});
+            // glm_translate(model, character.position);
+            glm_scale(model, (vec3){0.01f, 0.01f, 0.01f});
 
             mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
             glm_mat4_inv(model, normalMatrix);
             glm_mat4_transpose(normalMatrix);
-            shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
+            seel_shader_set_mat4(dft, "normalMatrix", &normalMatrix[0][0]);
 
-            shader_set_int(colors, "animate", 1);
-            shader_set_mat4(colors, "model", &model[0][0]);
-            model_draw(vampire, colors);
-        }
-
-        /* Mannequin */
-        transforms = animator_mannequin.final_bone_matrices;
-
-        for (int i = 0; i < animator_mannequin.num_matrices; ++i)
-        {
-            char location[64] = {0};
-            sprintf(location, "finalBonesMatrices[%d]", i);
-            mat4 t;
-            glm_mat4_copy(transforms[i], t);
-            shader_set_mat4(colors, location, &t[0][0]);
-        }
-
-        {
-            mat4 model = GLM_MAT4_IDENTITY_INIT;
-            glm_translate(model, character.position);
-            glm_scale(model, (vec3){0.005f, 0.005f, 0.005f});
-
-            mat4 normalMatrix = GLM_MAT4_IDENTITY_INIT;
-            glm_mat4_inv(model, normalMatrix);
-            glm_mat4_transpose(normalMatrix);
-            shader_set_mat4(colors, "normalMatrix", &normalMatrix[0][0]);
-
-            shader_set_int(colors, "animate", 1);
-            shader_set_mat4(colors, "model", &model[0][0]);
-            model_draw(mannequin, colors);
+            seel_shader_set_int(dft, "animate", 1);
+            seel_shader_set_mat4(dft, "model", &model[0][0]);
+            seel_model_draw(vampire, dft);
         }
         /* End of rendering my stuff */
 
         /* Rendering Nuklear stuff */
-        nk_glfw3_new_frame();
-
-        if (nk_begin(ctx, "Controls", nk_rect(50, 50, 230, 250),
-                     NK_WINDOW_BORDER |
-                         NK_WINDOW_MOVABLE |
-                         NK_WINDOW_TITLE |
-                         NK_WINDOW_MINIMIZABLE |
-                         NK_WINDOW_SCALABLE))
-        {
-            nk_layout_row_dynamic(ctx, 0, 1);
-            nk_labelf(ctx, NK_TEXT_CENTERED, "XYZ: %.1f %.1f %.1f FPS: %f", c.position[0], c.position[1], c.position[2], framerate);
-            if (nk_tree_push(ctx, NK_TREE_TAB, "Scene", NK_MINIMIZED))
-            {
-                nk_layout_row_dynamic(ctx, 0, 2);
-                nk_label(ctx, "Clear Color", NK_TEXT_CENTERED);
-                if (nk_combo_begin_color(ctx, clear_color, nk_vec2(200, 200)))
-                {
-                    float ratios[] = {0.15f, 0.85f};
-                    nk_layout_row(ctx, NK_DYNAMIC, 30, 2, ratios);
-                    nk_label(ctx, "R:", NK_TEXT_LEFT);
-                    clear_color.r = (nk_byte)nk_slide_float(ctx, 0, clear_color.r, 255, 5);
-                    nk_label(ctx, "G:", NK_TEXT_LEFT);
-                    clear_color.g = (nk_byte)nk_slide_int(ctx, 0, clear_color.g, 255, 5);
-                    nk_label(ctx, "B:", NK_TEXT_LEFT);
-                    clear_color.b = (nk_byte)nk_slide_int(ctx, 0, clear_color.b, 255, 5);
-                    nk_label(ctx, "A:", NK_TEXT_LEFT);
-                    clear_color.a = (nk_byte)nk_slide_int(ctx, 0, clear_color.a, 255, 5);
-                    nk_combo_end(ctx);
-                }
-                nk_labelf(ctx, NK_TEXT_CENTERED, "Debug Mode: %d", debugMode);
-                nk_tree_pop(ctx);
-            }
-            if (nk_tree_push(ctx, NK_TREE_TAB, "Cube", NK_MINIMIZED))
-            {
-                nk_layout_row_dynamic(ctx, 0, 2);
-                nk_label(ctx, "Cube shininess", NK_TEXT_CENTERED);
-                nk_slider_float(ctx, 2.0f, &cube_shininess, 256.0f, 1.0f);
-                nk_tree_pop(ctx);
-            }
-            if (nk_tree_push(ctx, NK_TREE_TAB, "Directional Light", NK_MINIMIZED))
-            {
-                nk_layout_row_dynamic(ctx, 0, 1);
-                nk_checkbox_label(ctx, "Enable Directional Light", &enable_directional_light);
-                nk_tree_pop(ctx);
-            }
-            if (nk_tree_push(ctx, NK_TREE_TAB, "Point Lights", NK_MINIMIZED))
-            {
-                nk_layout_row_dynamic(ctx, 0, 1);
-                nk_checkbox_label(ctx, "Enable Point Light", &enable_point_lights);
-                nk_tree_pop(ctx);
-            }
-            if (nk_tree_push(ctx, NK_TREE_TAB, "Spot Light", NK_MINIMIZED))
-            {
-                nk_layout_row_dynamic(ctx, 0, 1);
-                nk_checkbox_label(ctx, "Enable Spot Light", &enable_spot_light);
-                nk_tree_pop(ctx);
-            }
-        }
-        nk_end(ctx);
-
-        nk_glfw3_render(NK_ANTI_ALIASING_ON);
+        // nk_glfw3_new_frame();
+        // nk_glfw3_render(NK_ANTI_ALIASING_ON);
         /* End of rendering Nuklear stuff */
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
 
-    shader_delete(colors);
-    shader_delete(lights);
-    triangle_cleanup();
-    quad_cleanup();
-    cube_cleanup();
+    seel_shader_delete(dft);
+    seel_shader_delete(lights);
+    seel_shader_delete(text);
 
     // nk_glfw3_shutdown();
     glfwDestroyWindow(window);
@@ -377,7 +265,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void mouse_callback(GLFWwindow *window, double xposin, double yposin)
+void seel_mouse_callback(GLFWwindow *window, double xposin, double yposin)
 {
     float xpos = (float)xposin;
     float ypos = (float)yposin;
@@ -395,10 +283,10 @@ void mouse_callback(GLFWwindow *window, double xposin, double yposin)
     lasty = ypos;
 
     if (!release_cursor)
-        camera_process_mouse_movement(&c, (float)xoffset, (float)yoffset, true);
+        seel_camera_process_mouse_movement(&c, (float)xoffset, (float)yoffset, true);
 }
 
-void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
+void seel_key_callback(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
     if (key >= 0 && key < 1024)
     {
@@ -409,12 +297,12 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     }
 }
 
-void scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
+void seel_scroll_callback(GLFWwindow *window, double xoffset, double yoffset)
 {
-    camera_process_mouse_scroll(&c, (float)yoffset);
+    seel_camera_process_mouse_scroll(&c, (float)yoffset);
 }
 
-void process_input(GLFWwindow *window, float delta_time)
+void seel_process_input(GLFWwindow *window, float delta_time)
 {
     bool idle = true;
 
@@ -434,30 +322,27 @@ void process_input(GLFWwindow *window, float delta_time)
 
     if (keys[GLFW_KEY_W])
     {
-        character.position[2] += 0.75f * delta_time;
-        c.position[2] += 0.75f * delta_time;
-        play_animation(&animator_mannequin, &character.animations[1], true);
+        seel_camera_process_keyboard(&c, FORWARD, delta_time);
         idle = false;
     }
     if (keys[GLFW_KEY_S])
     {
         character.position[2] -= 0.75f * delta_time;
-        c.position[2] -= 0.75f * delta_time;
-        play_animation(&animator_mannequin, &character.animations[1], true);
+        seel_camera_process_keyboard(&c, BACKWARD, delta_time);
         idle = false;
     }
     if (keys[GLFW_KEY_A])
     {
-        camera_process_keyboard(&c, LEFT, delta_time);
+        seel_camera_process_keyboard(&c, LEFT, delta_time);
     }
     if (keys[GLFW_KEY_D])
     {
-        camera_process_keyboard(&c, RIGHT, delta_time);
+        seel_camera_process_keyboard(&c, RIGHT, delta_time);
     }
 
-    if (idle) {
-		play_animation(&animator_mannequin, &character.animations[0], true);
-	}
+    if (idle)
+    {
+    }
 }
 
 void glfw_error_callback(int error, const char *description)

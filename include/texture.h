@@ -6,7 +6,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-enum texture_type
+#include "error.h"
+
+#define MAX_TEXTURE_NAME_LEN 1024
+
+enum TextureType
 {
     DIFFUSE,
     SPECULAR,
@@ -16,22 +20,20 @@ enum texture_type
     AMBIENT,
 };
 
-typedef struct texture
+struct Texture
 {
     unsigned int id;
-    enum texture_type type;
-    char name[1024];
-} texture;
+    enum TextureType type;
+    char name[MAX_TEXTURE_NAME_LEN];
+};
 
-void texture_init_stb(void)
+void seel_texture_init_stb(void)
 {
     stbi_set_flip_vertically_on_load(true);
 }
 
-texture texture_create(const char *path, enum texture_type t)
+struct Texture seel_texture_create(const char *path, enum TextureType type)
 {
-    // printf("%s\n", path);
-
     unsigned int tex;
     glGenTextures(1, &tex);
     glBindTexture(GL_TEXTURE_2D, tex);
@@ -51,21 +53,21 @@ texture texture_create(const char *path, enum texture_type t)
     }
     else
     {
-        fprintf(stderr, "Failed to load texture!\n");
+        fprintf(stderr, "Failed to load texture %s!\n", path);
     }
 
     stbi_image_free(data);
 
     glBindTexture(GL_TEXTURE_2D, 0);
-    return (texture){.id = tex, .type = t};
+    return (struct Texture){.id = tex, .type = type};
 }
 
-void texture_bind(texture t)
+void seel_texture_bind(struct Texture t)
 {
     glBindTexture(GL_TEXTURE_2D, t.id);
 }
 
-void texture_unbind(void)
+void seel_texture_unbind(void)
 {
     glBindTexture(GL_TEXTURE_2D, 0);
 }

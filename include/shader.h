@@ -7,18 +7,21 @@
 
 #include "GLFW/glfw3.h"
 
-enum
+#define MAX_INFO_LEN 512
+
+enum ShaderType
 {
     FRAGMENT_SHADER = 0x8B30,
     VERTEX_SHADER = 0x8B31
 };
 
-typedef struct
+struct Shader
 {
     unsigned int id;
-} shader;
+};
 
-char *shader_read_file(const char *path)
+static char *
+seel_shader_read_file(const char *path)
 {
     FILE *file;
     long file_size;
@@ -59,21 +62,21 @@ char *shader_read_file(const char *path)
     return buffer;
 }
 
-unsigned int shader_create(const char *shader_path, int type)
+static unsigned int seel_shader_make(const char *shader_path, int type)
 {
     unsigned int shader;
-    char *shader_source = shader_read_file(shader_path);
+    char *shader_source = seel_shader_read_file(shader_path);
 
     shader = glCreateShader(type);
     glShaderSource(shader, 1, &shader_source, NULL);
     glCompileShader(shader);
 
     int success;
-    char info[512];
+    char info[MAX_INFO_LEN];
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success)
     {
-        glGetShaderInfoLog(shader, 512, NULL, info);
+        glGetShaderInfoLog(shader, MAX_INFO_LEN, NULL, info);
         fprintf(stderr, "Error in compiling %s shader!\n\n%s\n",
                 type == VERTEX_SHADER ? "vertex" : "fragment",
                 info);
@@ -85,59 +88,59 @@ unsigned int shader_create(const char *shader_path, int type)
     return shader;
 }
 
-shader program_create(const char *vs_path, const char *fs_path)
+struct Shader seel_shader_create(const char *vs_path, const char *fs_path)
 {
     unsigned int program;
     program = glCreateProgram();
 
-    unsigned int vertex_shader = shader_create(vs_path, VERTEX_SHADER);
-    unsigned int fragment_shader = shader_create(fs_path, FRAGMENT_SHADER);
+    unsigned int vertex_shader = seel_shader_make(vs_path, VERTEX_SHADER);
+    unsigned int fragment_shader = seel_shader_make(fs_path, FRAGMENT_SHADER);
 
     glAttachShader(program, vertex_shader);
     glAttachShader(program, fragment_shader);
     glLinkProgram(program);
 
     int success;
-    char info[512];
+    char info[MAX_INFO_LEN];
     glGetProgramiv(program, GL_LINK_STATUS, &success);
     if (!success)
     {
-        glGetProgramInfoLog(program, 512, NULL, info);
+        glGetProgramInfoLog(program, MAX_INFO_LEN, NULL, info);
         fprintf(stderr, "Error in creating shader program!\n\n, %s\n", info);
         glDeleteShader(vertex_shader);
         glDeleteShader(fragment_shader);
-        return (shader){-1};
+        return (struct Shader){-1};
     }
 
-    return (shader){program};
+    return (struct Shader){program};
 }
 
-void shader_use(shader s)
+void seel_shader_use(struct Shader s)
 {
     glUseProgram(s.id);
 }
 
-void shader_delete(shader s)
+void seel_shader_delete(struct Shader s)
 {
     glDeleteProgram(s.id);
 }
 
-void shader_set_int(shader s, const char *name, int value)
+void seel_shader_set_int(struct Shader s, const char *name, int value)
 {
     glUniform1i(glGetUniformLocation(s.id, name), value);
 }
 
-void shader_set_float(shader s, const char *name, float value)
+void seel_shader_set_float(struct Shader s, const char *name, float value)
 {
     glUniform1f(glGetUniformLocation(s.id, name), value);
 }
 
-void shader_set_vec3(shader s, const char *name, float *value)
+void seel_shader_set_vec3(struct Shader s, const char *name, float *value)
 {
     glUniform3fv(glGetUniformLocation(s.id, name), 1, value);
 }
 
-void shader_set_mat4(shader s, const char *name, float *value)
+void seel_shader_set_mat4(struct Shader s, const char *name, float *value)
 {
     glUniformMatrix4fv(glGetUniformLocation(s.id, name), 1, GL_FALSE, value);
 }

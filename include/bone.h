@@ -6,160 +6,166 @@
 #include "cglm/cglm.h"
 #include "assimp/scene.h"
 
+#define MAX_BONE_NAME_LEN 64
 #define MAX_BONE_INFLUENCE 4
 
-struct key_position
+struct KeyPosition
 {
     vec3 position;
     float time_stamp;
 };
 
-struct key_rotation
+struct KeyRotation
 {
     vec4 rotation;
     float time_stamp;
 };
 
-struct key_scaling
+struct KeyScale
 {
     vec3 scale;
     float time_stamp;
 };
 
-typedef struct bone_info
+struct BoneInfo
 {
-    char name[64];
+    char name[MAX_BONE_NAME_LEN];
     int id;
     mat4 offset;
-} bone_info;
+};
 
-typedef struct bone
+struct Bone
 {
-    struct key_position *positions;
-    struct key_rotation *rotations;
-    struct key_scaling *scalings;
+    struct KeyPosition *positions;
+    struct KeyRotation *rotations;
+    struct KeyScale *scalings;
     int num_positions;
     int num_rotations;
     int num_scalings;
     mat4 transform;
-    char name[64];
+    char name[MAX_BONE_NAME_LEN];
     int id;
-} bone;
+};
 
-bone bone_create(char *name, int id, const struct aiNodeAnim *channel)
+struct Bone seel_bone_create(const char *name, int id, const struct aiNodeAnim *channel)
 {
-    bone b = {
+    struct Bone bone = {
         .transform = GLM_MAT4_IDENTITY_INIT,
         .id = id,
     };
-    strcpy(b.name, name);
+    strcpy(bone.name, name);
 
-    b.num_positions = channel->mNumPositionKeys;
-    b.positions = (struct key_position *)malloc(sizeof(struct key_position) * b.num_positions);
-    if (!b.positions)
+    bone.num_positions = channel->mNumPositionKeys;
+    bone.positions = (struct KeyPosition *)malloc(sizeof(struct KeyPosition) * bone.num_positions);
+    if (!bone.positions)
     {
         fprintf(stderr, "Failed to allocate memory for bone positions!\n");
-        return b;
+        return bone;
     }
 
-    for (int position_index = 0; position_index < b.num_positions; ++position_index)
+    unsigned int position_index;
+    for (position_index = 0; position_index < bone.num_positions; position_index++)
     {
         struct aiVector3D ai_position = channel->mPositionKeys[position_index].mValue;
         float time_stamp = channel->mPositionKeys[position_index].mTime;
-        struct key_position data;
+        struct KeyPosition data;
         data.position[0] = ai_position.x;
         data.position[1] = ai_position.y;
         data.position[2] = ai_position.z;
         data.time_stamp = time_stamp;
-        b.positions[position_index] = data;
+        bone.positions[position_index] = data;
     }
 
-    b.num_rotations = channel->mNumRotationKeys;
-    b.rotations = (struct key_rotation *)malloc(sizeof(struct key_rotation) * b.num_rotations);
-    if (!b.rotations)
+    bone.num_rotations = channel->mNumRotationKeys;
+    bone.rotations = (struct KeyRotation *)malloc(sizeof(struct KeyRotation) * bone.num_rotations);
+    if (!bone.rotations)
     {
         fprintf(stderr, "Failed to allocate memory for bone rotations!\n");
-        return b;
+        return bone;
     }
 
-    for (int rotation_index = 0; rotation_index < b.num_rotations; ++rotation_index)
+    unsigned int rotation_index = 0;
+    for (rotation_index = 0; rotation_index < bone.num_rotations; rotation_index++)
     {
         struct aiQuaternion ai_rotation = channel->mRotationKeys[rotation_index].mValue;
         float time_stamp = channel->mRotationKeys[rotation_index].mTime;
-        struct key_rotation data;
+        struct KeyRotation data;
         data.rotation[0] = ai_rotation.x;
         data.rotation[1] = ai_rotation.y;
         data.rotation[2] = ai_rotation.z;
         data.rotation[3] = ai_rotation.w;
         data.time_stamp = time_stamp;
-        b.rotations[rotation_index] = data;
+        bone.rotations[rotation_index] = data;
     }
 
-    b.num_scalings = channel->mNumScalingKeys;
-    b.scalings = (struct key_scaling *)malloc(sizeof(struct key_scaling) * b.num_scalings);
-    if (!b.scalings)
+    bone.num_scalings = channel->mNumScalingKeys;
+    bone.scalings = (struct KeyScale *)malloc(sizeof(struct KeyScale) * bone.num_scalings);
+    if (!bone.scalings)
     {
         fprintf(stderr, "Failed to allocate memory for bone scalings!\n");
-        return b;
+        return bone;
     }
 
-    for (int scaling_index = 0; scaling_index < b.num_scalings; ++scaling_index)
+    unsigned int scaling_index;
+    for (scaling_index = 0; scaling_index < bone.num_scalings; scaling_index++)
     {
         struct aiVector3D ai_scaling = channel->mScalingKeys[scaling_index].mValue;
         float time_stamp = channel->mScalingKeys[scaling_index].mTime;
-        struct key_scaling data;
+        struct KeyScale data;
         data.scale[0] = ai_scaling.x;
         data.scale[1] = ai_scaling.y;
         data.scale[2] = ai_scaling.z;
         data.time_stamp = time_stamp;
-        b.scalings[scaling_index] = data;
+        bone.scalings[scaling_index] = data;
     }
 
-    return b;
+    return bone;
 }
 
-int get_position_index(bone *b, float animation_time)
+unsigned int seel_get_position_index(struct Bone *bone, float animation_time)
 {
-    if (b->num_positions <= 1)
+    if (bone->num_positions <= 1)
         return 0;
 
-    for (int index = 0; index < b->num_positions - 1; ++index)
+    unsigned int index;
+    for (index = 0; index < bone->num_positions - 1; index++)
     {
-        if (animation_time < b->positions[index + 1].time_stamp)
+        if (animation_time < bone->positions[index + 1].time_stamp)
             return index;
     }
 
-    return b->num_positions - 2;
+    return bone->num_positions - 2;
 }
 
-int get_rotation_index(bone *b, float animation_time)
+unsigned int seel_get_rotation_index(struct Bone *bone, float animation_time)
 {
-    if (b->num_rotations <= 1)
+    if (bone->num_rotations <= 1)
         return 0;
 
-    for (int index = 0; index < b->num_rotations - 1; ++index)
+    unsigned int index;
+    for (index = 0; index < bone->num_rotations - 1; index++)
     {
-        if (animation_time < b->rotations[index + 1].time_stamp)
+        if (animation_time < bone->rotations[index + 1].time_stamp)
             return index;
     }
-    return b->num_rotations - 2;
+    return bone->num_rotations - 2;
 }
 
-int get_scale_index(bone *b, float animation_time)
+unsigned int seel_get_scale_index(struct Bone *bone, float animation_time)
 {
-    if (b->num_scalings <= 1)
+    if (bone->num_scalings <= 1)
         return 0;
 
-    for (int index = 0; index < b->num_scalings - 1; ++index)
+    for (int index = 0; index < bone->num_scalings - 1; index++)
     {
-        if (animation_time < b->scalings[index + 1].time_stamp)
+        if (animation_time < bone->scalings[index + 1].time_stamp)
             return index;
     }
 
-    return b->num_scalings - 2;
+    return bone->num_scalings - 2;
 }
 
-float get_scale_factor(float last_time_stamp, float next_time_stamp, float animation_time)
+float seel_get_scale_factor(float last_time_stamp, float next_time_stamp, float animation_time)
 {
     float scale_factor = 0.0f;
     float mid_way_length = animation_time - last_time_stamp;
@@ -168,61 +174,61 @@ float get_scale_factor(float last_time_stamp, float next_time_stamp, float anima
     return scale_factor;
 }
 
-void interpolate_position(float animation_time, struct key_position from, struct key_position to, vec4 *dest)
+void seel_interpolate_position(float animation_time, struct KeyPosition from, struct KeyPosition to, vec4 *dest)
 {
-    float scale_factor = get_scale_factor(from.time_stamp, to.time_stamp, animation_time);
+    float scale_factor = seel_get_scale_factor(from.time_stamp, to.time_stamp, animation_time);
     vec3 final_position;
     glm_vec3_mix(from.position, to.position, scale_factor, final_position);
     glm_translate_to(GLM_MAT4_IDENTITY, final_position, dest);
 }
 
-void interpolate_rotation(float animation_time, struct key_rotation from, struct key_rotation to, vec4 *dest)
+void seel_interpolate_rotation(float animation_time, struct KeyRotation from, struct KeyRotation to, vec4 *dest)
 {
-    float scale_factor = get_scale_factor(from.time_stamp, to.time_stamp, animation_time);
+    float scale_factor = seel_get_scale_factor(from.time_stamp, to.time_stamp, animation_time);
     vec4 final_rotation;
     glm_quat_slerp(from.rotation, to.rotation, scale_factor, final_rotation);
     glm_vec4_normalize(final_rotation);
-    glm_quat_mat4(final_rotation, dest); /* check if breaking */
+    glm_quat_mat4(final_rotation, dest);
 }
 
-void interpolate_scaling(float animation_time, struct key_scaling from, struct key_scaling to, vec4 *dest)
+void seel_interpolate_scaling(float animation_time, struct KeyScale from, struct KeyScale to, vec4 *dest)
 {
-    float scale_factor = get_scale_factor(from.time_stamp, to.time_stamp, animation_time);
+    float scale_factor = seel_get_scale_factor(from.time_stamp, to.time_stamp, animation_time);
     vec3 final_scale;
     glm_vec3_mix(from.scale, to.scale, scale_factor, final_scale);
     glm_scale_to(GLM_MAT4_IDENTITY, final_scale, dest);
 }
 
-void update(bone *b, float animation_time)
+void seel_bone_update(struct Bone *bone, float animation_time)
 {
-    size_t pos_index = get_position_index(b, animation_time);
+    unsigned int pos_index = seel_get_position_index(bone, animation_time);
     mat4 translation;
-    if (b->num_positions)
+    if (bone->num_positions)
     {
-        glm_translate_to(GLM_MAT4_IDENTITY, b->positions[0].position, translation);
+        glm_translate_to(GLM_MAT4_IDENTITY, bone->positions[0].position, translation);
     }
     else
-        interpolate_position(animation_time, b->positions[pos_index], b->positions[pos_index + 1], translation);
+        seel_interpolate_position(animation_time, bone->positions[pos_index], bone->positions[pos_index + 1], translation);
 
-    size_t rot_index = get_rotation_index(b, animation_time);
+    unsigned int rot_index = seel_get_rotation_index(bone, animation_time);
     mat4 rotation;
-    if (b->num_rotations == 1)
+    if (bone->num_rotations == 1)
     {
         vec4 norm;
-        glm_normalize_to(b->rotations[0].rotation, norm);
+        glm_normalize_to(bone->rotations[0].rotation, norm);
         glm_quat_mat4(norm, rotation);
     }
     else
-        interpolate_rotation(animation_time, b->rotations[rot_index], b->rotations[rot_index + 1], rotation);
+        seel_interpolate_rotation(animation_time, bone->rotations[rot_index], bone->rotations[rot_index + 1], rotation);
 
-    size_t scl_index = get_scale_index(b, animation_time);
+    unsigned int scl_index = seel_get_scale_index(bone, animation_time);
     mat4 scale;
-    if (b->num_scalings == 1)
-        glm_scale_to(GLM_MAT4_IDENTITY, b->scalings[0].scale, scale);
+    if (bone->num_scalings == 1)
+        glm_scale_to(GLM_MAT4_IDENTITY, bone->scalings[0].scale, scale);
     else
-        interpolate_scaling(animation_time, b->scalings[scl_index], b->scalings[scl_index + 1], scale);
+        seel_interpolate_scaling(animation_time, bone->scalings[scl_index], bone->scalings[scl_index + 1], scale);
 
-    glm_mat4_mulN((mat4 *[]){&translation, &rotation, &scale}, 3, b->transform);
+    glm_mat4_mulN((mat4 *[]){&translation, &rotation, &scale}, 3, bone->transform);
 }
 
 #endif /* BONE_H */
