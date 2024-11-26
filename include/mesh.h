@@ -91,7 +91,7 @@ struct Mesh seel_mesh_init(struct Vertex *vertices,
     return mesh;
 }
 
-void seel_mesh_draw(struct Mesh mesh, struct Shader shader)
+void seel_mesh_draw(struct Mesh mesh, struct Shader *shader)
 {
     unsigned int diffuse_nr = 1;
     unsigned int specular_nr = 1;

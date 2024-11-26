@@ -333,11 +333,11 @@ struct Model seel_model_load(const char *path)
     return m;
 }
 
-void seel_model_draw(struct Model model, struct Shader shader)
+void seel_model_draw(struct Model *model, struct Shader *shader)
 {
     unsigned int i;
-    for (i = 0; i < model.num_meshes; i++)
-        seel_mesh_draw(model.meshes[i], shader);
+    for (i = 0; i < model->num_meshes; i++)
+        seel_mesh_draw(model->meshes[i], shader);
 }
 
 #endif /* MODEL_H */

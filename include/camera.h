@@ -2,6 +2,8 @@
 #define CAMERA_H
 
 #include "cglm/cglm.h"
+#include "engine_types.h"
+#include "config.h"
 
 enum CameraMovement
 {
@@ -11,14 +13,9 @@ enum CameraMovement
     RIGHT
 };
 
-const float YAW = -90.0f;
-const float PITCH = 0.0f;
-const float SPEED = 2.5f;
-const float SENSITIVITY = 0.1f;
-const float ZOOM = 45.0f;
-
 struct Camera
 {
+    enum CameraMode mode;
     vec3 position;
     vec3 front;
     vec3 up;
@@ -29,8 +26,10 @@ struct Camera
     float far_clip;
     float yaw;
     float pitch;
+    float distance;
     float movement_speed;
     float mouse_sensitivity;
+    bool invert_y;
     float zoom;
 };
 
@@ -47,22 +46,24 @@ static void seel_camera_update_vectors(struct Camera *camera)
     glm_vec3_normalize(camera->up);
 }
 
-struct Camera seel_camera_create(void)
+struct Camera seel_camera_create(struct CameraConfig *config)
 {
     struct Camera camera;
 
-    glm_vec3_copy((vec3){0.0f, 0.0f, 3.0f}, camera.position);
+    glm_vec3_copy(config->initial_position, camera.position);
     glm_vec3_copy((vec3){0.0f, 0.0f, -1.0f}, camera.front);
     glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, camera.world_up);
     glm_vec3_copy((vec3){0.0f, 1.0f, 0.0f}, camera.up);
-    camera.fov = 45.0f;
-    camera.near_clip = 0.1f;
-    camera.far_clip = 100.0f;
-    camera.yaw = YAW;
-    camera.pitch = PITCH;
-    camera.movement_speed = SPEED;
-    camera.mouse_sensitivity = SENSITIVITY;
-    camera.zoom = ZOOM;
+    camera.fov = config->fov;
+    camera.near_clip = config->near_clip;
+    camera.far_clip = config->far_clip;
+    camera.yaw = config->yaw;
+    camera.pitch = config->pitch;
+    camera.movement_speed = config->movement_speed;
+    camera.mouse_sensitivity = config->mouse_sensitivity;
+    camera.zoom = config->zoom;
+    camera.invert_y = config->invert_y;
+
     seel_camera_update_vectors(&camera);
 
     return camera;

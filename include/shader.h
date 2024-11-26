@@ -115,34 +115,34 @@ struct Shader seel_shader_create(const char *vs_path, const char *fs_path)
     return (struct Shader){program};
 }
 
-void seel_shader_use(struct Shader s)
+void seel_shader_use(struct Shader *s)
 {
-    glUseProgram(s.id);
+    glUseProgram(s->id);
 }
 
-void seel_shader_delete(struct Shader s)
+void seel_shader_delete(struct Shader *s)
 {
-    glDeleteProgram(s.id);
+    glDeleteProgram(s->id);
 }
 
-void seel_shader_set_int(struct Shader s, const char *name, int value)
+void seel_shader_set_int(struct Shader *s, const char *name, int value)
 {
-    glUniform1i(glGetUniformLocation(s.id, name), value);
+    glUniform1i(glGetUniformLocation(s->id, name), value);
 }
 
-void seel_shader_set_float(struct Shader s, const char *name, float value)
+void seel_shader_set_float(struct Shader *s, const char *name, float value)
 {
-    glUniform1f(glGetUniformLocation(s.id, name), value);
+    glUniform1f(glGetUniformLocation(s->id, name), value);
 }
 
-void seel_shader_set_vec3(struct Shader s, const char *name, float *value)
+void seel_shader_set_vec3(struct Shader *s, const char *name, float *value)
 {
-    glUniform3fv(glGetUniformLocation(s.id, name), 1, value);
+    glUniform3fv(glGetUniformLocation(s->id, name), 1, value);
 }
 
-void seel_shader_set_mat4(struct Shader s, const char *name, float *value)
+void seel_shader_set_mat4(struct Shader *s, const char *name, float *value)
 {
-    glUniformMatrix4fv(glGetUniformLocation(s.id, name), 1, GL_FALSE, value);
+    glUniformMatrix4fv(glGetUniformLocation(s->id, name), 1, GL_FALSE, value);
 }
 
 #endif /* SHADER_H */

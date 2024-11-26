@@ -3,6 +3,8 @@
 
 #include "cglm/cglm.h"
 
+#define MAX_LIGHTS 500
+
 struct DirectionalLight
 {
     vec3 direction;
@@ -37,5 +39,7 @@ struct SpotLight
     vec3 diffuse;
     vec3 specular;
 };
+
+void seel_point_light_set_uniforms();
 
 #endif /* LIGHT_H */

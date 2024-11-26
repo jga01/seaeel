@@ -25,7 +25,7 @@ struct Character characters[CHARACTERS_SIZE];
 
 int seel_freetype_init(void);
 int seel_generate_characters(FT_Face face);
-void seel_render_text(struct Shader shader, const char *text, float x, float y, float scale, vec3 color, int width, int height);
+void seel_render_text(struct Shader *shader, const char *text, float x, float y, float scale, vec3 color, int width, int height);
 
 int seel_freetype_init(void)
 {
@@ -53,7 +53,7 @@ int seel_freetype_init(void)
     FT_Done_FreeType(ft);
 }
 
-void seel_render_text(struct Shader shader, const char *text, float x, float y, float scale, vec3 color, int width, int height)
+void seel_render_text(struct Shader *shader, const char *text, float x, float y, float scale, vec3 color, int width, int height)
 {
     mat4 projection = GLM_MAT4_IDENTITY_INIT;
     glm_ortho(0.0f, width, 0.0f, height, 0.0f, 1.0f, projection);
