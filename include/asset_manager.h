@@ -1,5 +1,5 @@
-#ifndef RESOURCE_H
-#define RESOURCE_H
+#ifndef ASSET_MANAGER_H
+#define ASSET_MANAGER_H
 
 #include <stdbool.h>
 #include <stdio.h>
@@ -84,6 +84,12 @@ void seel_asset_manager_cleanup(struct AssetManager *manager)
 
 bool seel_asset_manager_load(struct AssetManager *manager, enum AssetType type, const char *name, ...)
 {
+    if (seel_asset_manager_get(manager, type, name) != NULL)
+    {
+        fprintf(stderr, "Asset '%s' of type %d already loaded.\n", name, type);
+        return true;
+    }
+
     struct Asset asset;
     strncpy(asset.name, name, MAX_ASSET_NAME_LEN - 1);
     asset.name[MAX_ASSET_NAME_LEN - 1] = '\0';
@@ -106,7 +112,8 @@ bool seel_asset_manager_load(struct AssetManager *manager, enum AssetType type, 
         }
         else
         {
-            fprintf(stderr, "Failed to allocate memory for shader resource.\n");
+            fprintf(stderr, "Failed to load shader: %s\n", name);
+            free(asset.data.shader);
             success = false;
         }
         break;
@@ -122,7 +129,8 @@ bool seel_asset_manager_load(struct AssetManager *manager, enum AssetType type, 
         }
         else
         {
-            fprintf(stderr, "Failed to allocate memory for texture resource.\n");
+            fprintf(stderr, "Failed to load texture: %s\n", name);
+            free(asset.data.texture);
             success = false;
         }
         break;
@@ -137,7 +145,8 @@ bool seel_asset_manager_load(struct AssetManager *manager, enum AssetType type, 
         }
         else
         {
-            fprintf(stderr, "Failed to allocate memory for model resource.\n");
+            fprintf(stderr, "Failed to load model: %s\n", name);
+            free(asset.data.model);
             success = false;
         }
         break;
@@ -151,7 +160,14 @@ bool seel_asset_manager_load(struct AssetManager *manager, enum AssetType type, 
 
     if (success)
     {
-        manager->assets = realloc(manager->assets, (manager->num_assets + 1) * sizeof(struct Asset));
+        struct Asset *new_assets = realloc(manager->assets, (manager->num_assets + 1) * sizeof(struct Asset));
+        if (!new_assets)
+        {
+            fprintf(stderr, "Failed to reallocate asset manager memory.\n");
+            free(asset.data.shader);
+            return false;
+        }
+        manager->assets = new_assets;
         manager->assets[manager->num_assets++] = asset;
     }
 
@@ -180,4 +196,4 @@ void *seel_asset_manager_get(const struct AssetManager *manager, enum AssetType 
     return NULL;
 }
 
-#endif /* RESOURCE_H */
+#endif /* ASSET_MANAGER_H */

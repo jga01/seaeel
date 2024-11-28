@@ -12,8 +12,8 @@
 #include "texture.h"
 #include "bone.h"
 
-#define MAX_DIRECTORY_LEN   1024
-#define MAX_BONES           100
+#define MAX_DIRECTORY_LEN 1024
+#define MAX_BONES 100
 
 struct Model
 {
@@ -21,9 +21,11 @@ struct Model
     struct Mesh *meshes;
     unsigned int num_textures;
     unsigned int num_meshes;
+    char name[256];
     char directory[MAX_DIRECTORY_LEN];
     struct BoneInfo bone_info[MAX_BONES];
     unsigned int bone_counter;
+    bool animated;
 };
 
 void seel_set_vertex_bone_data_to_default(struct Vertex *vertex)
@@ -322,9 +324,13 @@ struct Model seel_model_load(const char *path)
         return m;
     }
 
+    if (scene->mAnimations && scene->mNumAnimations)
+        m.animated = true;
+
     const char *name = strrchr(path, '/');
     unsigned int size = name - path;
     strncpy(m.directory, path, size + 1);
+    strncpy(m.name, name + 1, strlen(name + 1));
 
     seel_process_node(&m, scene->mRootNode, scene);
 

@@ -10,6 +10,7 @@
 #include "asset_manager.h"
 #include "text.h"
 #include "time.h"
+#include "scene.h"
 #include "config.h"
 
 struct Engine
@@ -21,6 +22,7 @@ struct Engine
     struct Input input;
     struct AssetManager asset_manager;
     struct TimeManager time_manager;
+    struct Scene scene;
 };
 
 bool seel_engine_init(struct Engine *e);
@@ -54,7 +56,30 @@ bool seel_engine_init(struct Engine *e)
     if (!SEEL_ASSET_MANAGER_LOAD(&e->asset_manager, ASSET_MODEL, "vampire", "../assets/models/vampire/dancing_vampire.dae"))
         return -1;
 
+    seel_scene_init(&e->scene);
+
+    {
+        mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
+        glm_scale(model_matrix, (vec3){0.01f, 0.01f, 0.01f});
+        seel_scene_add_model(&e->scene, "vampire1", (struct Model *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, MODEL, "vampire"), model_matrix);
+    }
+
+    {
+        mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
+        glm_scale(model_matrix, (vec3){0.01f, 0.01f, 0.01f});
+        glm_translate(model_matrix, (vec3){300.0f, 1.0f, 1.0f});
+        seel_scene_add_model(&e->scene, "vampire2", (struct Model *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, MODEL, "vampire"), model_matrix);
+    }
+
+    {
+        mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
+        glm_scale(model_matrix, (vec3){0.01f, 0.01f, 0.01f});
+        glm_translate(model_matrix, (vec3){600.0f, 1.0f, 1.0f});
+        seel_scene_add_model(&e->scene, "vampire3", (struct Model *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, MODEL, "vampire"), model_matrix);
+    }
+
     seel_renderer_init(&e->renderer, &e->config.renderer, &e->camera);
+    seel_renderer_set_active_shader(&e->renderer, (struct Shader *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, SHADER, "default"));
 
     seel_time_init(&e->time_manager);
 
@@ -69,20 +94,15 @@ void seel_engine_update(struct Engine *e)
 
     seel_renderer_begin_frame(&e->renderer);
 
-    seel_renderer_set_active_shader(&e->renderer, (struct Shader *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, SHADER, "default"));
+    seel_scene_update(&e->scene, e->time_manager.delta_time);
 
-    mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
-    glm_scale(model_matrix, (vec3){0.01f, 0.01f, 0.01f});
+    seel_scene_render(&e->scene, &e->renderer);
 
-    struct Model *vampire_model = (struct Model *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, MODEL, "vampire");
-    seel_renderer_draw_model(&e->renderer, vampire_model, model_matrix);
-
-    float tex_start_y = (float)e->renderer.height - 10.0f;
     seel_render_text((struct Shader *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, SHADER, "text"),
-                     "Seaeel Engine 0.1v", 10.0f, tex_start_y - 25.0f, 0.5f, (vec3){1.0f, 1.0f, 1.0f}, e->renderer.width, e->renderer.height);
+                     "Seaeel Engine 0.1v", 10.0f, e->renderer.height - 35.0f, 0.5f, (vec3){1.0f, 1.0f, 1.0f}, e->renderer.width, e->renderer.height);
     char fps_text[32];
     sprintf(fps_text, "Framerate: %.f", e->time_manager.frame_rate);
-    seel_render_text((struct Shader *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, SHADER, "text"), fps_text, 10.0f, tex_start_y - 50.0f, 0.5f, (vec3){1.0f, 1.0f, 1.0f}, e->renderer.width, e->renderer.height);
+    seel_render_text((struct Shader *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, SHADER, "text"), fps_text, 10.0f, e->renderer.height - 60.0f, 0.5f, (vec3){1.0f, 1.0f, 1.0f}, e->renderer.width, e->renderer.height);
 
     seel_renderer_end_frame();
 }

@@ -5,23 +5,25 @@ layout (location = 1) in vec2 aTexCoord;
 layout (location = 2) in vec3 aNormal;
 layout (location = 3) in vec3 aTangent;
 layout (location = 4) in vec3 aBiTangent;
-layout (location = 5) in ivec4 boneIds;
-layout (location = 6) in vec4 weights;
+layout (location = 5) in ivec4 boneIds; // Bone IDs affecting this vertex
+layout (location = 6) in vec4 weights;  // Corresponding bone weights
 
-out vec2 TexCoord;
-out vec3 Normal;
-out vec3 FragPos;
+out vec2 TexCoord;  // Texture coordinates
+out vec3 Normal;    // Transformed normal vector
+out vec3 FragPos;   // Position of fragment in world space
 
+// Animation parameters
 const int MAX_BONES = 100;
 const int MAX_BONE_INFLUENCE = 4;
-uniform mat4 finalBonesMatrices[MAX_BONES];
 
-uniform bool animate;
+uniform mat4 boneMatrices[MAX_BONES];  // Bone transformation matrices
+uniform bool animate;                 // Toggle animation on/off
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-uniform mat4 normalMatrix;
+// Matrices for non-animated transformations
+uniform mat4 model;        // Model matrix
+uniform mat4 view;         // View matrix
+uniform mat4 projection;   // Projection matrix
+uniform mat4 normalMatrix; // Model-view normal transformation matrix
 
 void main()
 {
@@ -30,26 +32,16 @@ void main()
 
     if (animate)
     {
-        for(int i = 0 ; i < MAX_BONE_INFLUENCE ; i++)
+        for (int i = 0; i < MAX_BONE_INFLUENCE; i++)
         {
-            // Current bone-weight pair is non-existing
-            if(boneIds[i] == -1) 
-                continue;
-
-            // Ignore all bones over count MAX_BONES
-            if(boneIds[i] >= MAX_BONES) 
+            if (weights[i] > 0.0 && boneIds[i] < MAX_BONES)
             {
-                updatedPosition = vec4(aPos,1.0f);
-                updatedNormal = aNormal;
-                break;
+                vec4 bonePosition = boneMatrices[boneIds[i]] * vec4(aPos, 1.0);
+                updatedPosition += bonePosition * weights[i];
+
+                mat3 boneNormalMatrix = mat3(boneMatrices[boneIds[i]]);
+                updatedNormal += weights[i] * normalize(boneNormalMatrix * aNormal);
             }
-            // Set pos
-            vec4 localPosition = finalBonesMatrices[boneIds[i]] * vec4(aPos, 1.0f);
-            updatedPosition += localPosition * weights[i];
-            // Set normal
-            mat3 normalMatrixBone = mat3(finalBonesMatrices[boneIds[i]]);
-            vec3 localNormal = normalMatrixBone * aNormal;
-            updatedNormal += localNormal * weights[i];
         }
     }
     else
@@ -57,13 +49,10 @@ void main()
         updatedPosition = vec4(aPos, 1.0f);
         updatedNormal = aNormal;
     }
-	
-	TexCoord = aTexCoord;
-    // FragPos = vec3(model * vec4(aPos, 1.0));
-    // Normal = mat3(normalMatrix) * aNormal;
-    // gl_Position = projection * view * vec4(FragPos, 1.0);
 
+    TexCoord = aTexCoord;
+    FragPos = vec3(model * updatedPosition);
+    Normal = normalize(mat3(normalMatrix) * updatedNormal);
+    
     gl_Position = projection * view * model * updatedPosition;
-    FragPos = vec3(model * vec4(vec3(updatedPosition), 1.0f));
-    Normal = mat3(normalMatrix) * updatedNormal;
 }
