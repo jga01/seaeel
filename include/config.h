@@ -63,7 +63,7 @@ void seel_config_init_defaults(struct EngineConfig *engine_config)
     engine_config->window.height = 720;
     strcpy(engine_config->window.title, "Seaeel Engine v0.1");
 
-    glm_vec3_copy((vec3){0.1f, 0.1f, 0.1f}, engine_config->renderer.clear_color);
+    glm_vec3_copy((vec3){0.0f, 0.0f, 0.0f}, engine_config->renderer.clear_color);
     engine_config->renderer.max_element_buffer = 512 * 1024;
     engine_config->renderer.max_vertex_buffer = 128 * 1024;
     engine_config->renderer.width = engine_config->window.width;

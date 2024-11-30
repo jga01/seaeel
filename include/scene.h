@@ -41,13 +41,13 @@ void seel_scene_add_model(struct Scene *scene, struct AssetManager *asset_manage
 {
     mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
 
-    // Apply scaling
+    /* Apply scaling */
     glm_scale(model_matrix, scale);
 
-    // Apply translation
+    /* Apply translation */
     glm_translate(model_matrix, translate);
 
-    // Retrieve the model and add it to the scene
+    /* Retrieve the model and add it to the scene */
     struct Model *model = (struct Model *)SEEL_ASSET_MANAGER_GET(asset_manager, MODEL, asset_name);
     if (model)
     {
