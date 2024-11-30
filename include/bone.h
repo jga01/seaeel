@@ -124,17 +124,12 @@ struct Bone seel_bone_create(const char *name, int id, const struct aiNodeAnim *
 
 unsigned int seel_get_position_index(struct Bone *bone, float animation_time)
 {
-    if (bone->num_positions <= 1)
-        return 0;
-
-    unsigned int index;
-    for (index = 0; index < bone->num_positions - 1; index++)
-    {
-        if (animation_time < bone->positions[index + 1].time_stamp)
-            return index;
-    }
-
-    return bone->num_positions - 2;
+        for (int index = 0; index < bone->num_positions - 1; ++index)
+        {
+            if (animation_time < bone->positions[index + 1].time_stamp)
+                return index;
+        }
+        assert(0);
 }
 
 unsigned int seel_get_rotation_index(struct Bone *bone, float animation_time)

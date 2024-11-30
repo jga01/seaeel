@@ -58,25 +58,9 @@ bool seel_engine_init(struct Engine *e)
 
     seel_scene_init(&e->scene);
 
-    {
-        mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
-        glm_scale(model_matrix, (vec3){0.01f, 0.01f, 0.01f});
-        seel_scene_add_model(&e->scene, "vampire1", (struct Model *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, MODEL, "vampire"), model_matrix);
-    }
-
-    {
-        mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
-        glm_scale(model_matrix, (vec3){0.01f, 0.01f, 0.01f});
-        glm_translate(model_matrix, (vec3){300.0f, 1.0f, 1.0f});
-        seel_scene_add_model(&e->scene, "vampire2", (struct Model *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, MODEL, "vampire"), model_matrix);
-    }
-
-    {
-        mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
-        glm_scale(model_matrix, (vec3){0.01f, 0.01f, 0.01f});
-        glm_translate(model_matrix, (vec3){600.0f, 1.0f, 1.0f});
-        seel_scene_add_model(&e->scene, "vampire3", (struct Model *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, MODEL, "vampire"), model_matrix);
-    }
+    seel_scene_add_model(&e->scene, &e->asset_manager, "vampire1", "vampire", (vec3){0.01f, 0.01f, 0.01f}, (vec3){0.0f, 0.0f, 0.0f});
+    seel_scene_add_model(&e->scene, &e->asset_manager, "vampire2", "vampire", (vec3){0.01f, 0.01f, 0.01f}, (vec3){300.0f, 1.0f, 1.0f});
+    seel_scene_add_model(&e->scene, &e->asset_manager, "vampire3", "vampire", (vec3){0.01f, 0.01f, 0.01f}, (vec3){600.0f, 1.0f, 1.0f});
 
     seel_renderer_init(&e->renderer, &e->config.renderer, &e->camera);
     seel_renderer_set_active_shader(&e->renderer, (struct Shader *)SEEL_ASSET_MANAGER_GET(&e->asset_manager, SHADER, "default"));

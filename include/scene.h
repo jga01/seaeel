@@ -4,6 +4,7 @@
 #include "model.h"
 #include "animator.h"
 #include "renderer.h"
+#include "asset_manager.h"
 
 #define MAX_NODE_NAME_LEN 512
 
@@ -25,7 +26,7 @@ struct Scene
 };
 
 void seel_scene_init(struct Scene *scene);
-void seel_scene_add_model(struct Scene *scene, const char *name, struct Model *model, mat4 transform);
+void seel_scene_add_model(struct Scene *scene, struct AssetManager *asset_manager, const char *model_id, const char *asset_name, vec3 scale, vec3 translate);
 void seel_scene_update(struct Scene *scene, float delta_time);
 void seel_scene_render(struct Scene *scene, struct Renderer *renderer);
 void seel_scene_cleanup(struct Scene *scene);
@@ -36,29 +37,72 @@ void seel_scene_init(struct Scene *scene)
     scene->num_root_nodes = 0;
 }
 
-void seel_scene_add_model(struct Scene *scene, const char *name, struct Model *model, mat4 transform)
+void seel_scene_add_model(struct Scene *scene, struct AssetManager *asset_manager, const char *model_id, const char *asset_name, vec3 scale, vec3 translate)
 {
-    scene->root_nodes = realloc(scene->root_nodes, sizeof(struct SceneNode) * (scene->num_root_nodes + 1));
-    struct SceneNode *node = &scene->root_nodes[scene->num_root_nodes++];
+    mat4 model_matrix = GLM_MAT4_IDENTITY_INIT;
 
-    strcpy(node->name, name);
-    node->model = model;
-    seel_animator_create(&node->animator);
-    if (model->animated)
+    // Apply scaling
+    glm_scale(model_matrix, scale);
+
+    // Apply translation
+    glm_translate(model_matrix, translate);
+
+    // Retrieve the model and add it to the scene
+    struct Model *model = (struct Model *)SEEL_ASSET_MANAGER_GET(asset_manager, MODEL, asset_name);
+    if (model)
     {
-        char temp[256];
-        strcpy(temp, model->directory);
-        node->animation = seel_animation_create(strcat(temp, model->name), model);
-        seel_play_animation(&node->animator, &node->animation, true);
+        struct SceneNode *old_nodes = scene->root_nodes;
+
+        scene->root_nodes = realloc(scene->root_nodes, sizeof(struct SceneNode) * (scene->num_root_nodes + 1));
+        if (!scene->root_nodes)
+        {
+            /* Handle allocation failure */
+            fprintf(stderr, "Failed to reallocate memory for scene nodes.\n");
+            exit(EXIT_FAILURE);
+        }
+
+        /* Check if realloc moved the memory */
+        if (scene->root_nodes != old_nodes)
+        {
+            /* Fix all internal pointers within existing nodes */
+            for (unsigned int i = 0; i < scene->num_root_nodes; i++)
+            {
+                struct SceneNode *node = &scene->root_nodes[i];
+                if (node->animator.current_animation)
+                {
+                    node->animator.current_animation = (struct Animation *)((char *)node->animator.current_animation + ((char *)scene->root_nodes - (char *)old_nodes));
+                }
+                /* Repeat this for other pointers if needed */
+            }
+        }
+
+        struct SceneNode *node = &scene->root_nodes[scene->num_root_nodes++];
+        memset(node, 0, sizeof(struct SceneNode));
+
+        strcpy(node->name, model_id);
+        node->model = model;
+        seel_animator_create(&node->animator);
+        if (model->animated)
+        {
+            char temp[256];
+            strcpy(temp, model->directory);
+            snprintf(temp, sizeof(temp), "%s%s", model->directory, model->name);
+            node->animation = seel_animation_create(temp, model);
+            seel_play_animation(&node->animator, &node->animation, true);
+        }
+        glm_mat4_copy(model_matrix, node->transform);
+        node->children = NULL;
+        node->num_children = 0;
     }
-    glm_mat4_copy(transform, node->transform);
-    node->children = NULL;
-    node->num_children = 0;
+    else
+    {
+        printf("Error: Model asset '%s' not found.\n", asset_name);
+    }
 }
 
 void seel_scene_update(struct Scene *scene, float delta_time)
 {
-    for (unsigned int i = 0; i < scene->num_root_nodes; ++i)
+    for (unsigned int i = 0; i < scene->num_root_nodes; i++)
     {
         struct SceneNode *node = &scene->root_nodes[i];
         if (node->animator.current_animation)
@@ -73,10 +117,6 @@ void seel_scene_render(struct Scene *scene, struct Renderer *renderer)
     for (unsigned int i = 0; i < scene->num_root_nodes; ++i)
     {
         struct SceneNode *node = &scene->root_nodes[i];
-
-        // mat4 global_transform = GLM_MAT4_IDENTITY_INIT;
-        // glm_mat4_copy(node->transform, global_transform);
-
         seel_renderer_draw_scene_node(renderer, node->model, &node->animator, node->transform);
     }
 }

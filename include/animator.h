@@ -21,6 +21,10 @@ struct Animator
 struct KeyPosition seel_get_positions(struct Bone *bone, float animation_time)
 {
     unsigned int pos_index = (animation_time == 0.0f) ? 0 : seel_get_position_index(bone, animation_time) + 1;
+    if (pos_index + 1 >= bone->num_positions)
+    {
+        pos_index = bone->num_positions - 1;
+    }
     return bone->positions[pos_index];
 }
 
@@ -48,6 +52,12 @@ void seel_calculate_bone_transition(struct Animator *animator,
     char *node_name = cur_node->name;
     mat4 transform;
     glm_mat4_copy(cur_node->transformation, transform);
+
+    if (!prev_animation || !next_animation)
+    {
+        fprintf(stderr, "No previous and/or no next animation!\n");
+        return;
+    }
 
     struct Bone prev_bone = seel_find_bone(prev_animation, node_name);
     struct Bone next_bone = seel_find_bone(next_animation, node_name);
@@ -97,6 +107,11 @@ void seel_calculate_bone_transition(struct Animator *animator,
     }
 
     for (i = 0; i < cur_node->children_count; i++)
+    {
+        if (!cur_node->children)
+        {
+            return;
+        }
         seel_calculate_bone_transition(animator,
                                        &cur_node->children[i],
                                        global_transformation,
@@ -105,19 +120,9 @@ void seel_calculate_bone_transition(struct Animator *animator,
                                        halt_time,
                                        current_time,
                                        transition_time);
+    }
 }
 
-/**
- * Updates the bone transformations for the animator based on the current time.
- * Recursively traverses the hierarchy of Assimp nodes and updates the matrices
- * of bones present in the animation.
- * 
- * @param animator - Pointer to the Animator instance.
- * @param node - Current AssimpNodeData being processed.
- * @param parent_transform - Transform of the parent node.
- * @param animation - Pointer to the active Animation.
- * @param current_time - Current time in the animation cycle.
- */
 void seel_calculate_bone_transform(struct Animator *animator,
                                    struct AssimpNodeData *node,
                                    vec4 *parent_transform,
@@ -125,10 +130,9 @@ void seel_calculate_bone_transform(struct Animator *animator,
                                    float current_time)
 {
     char *node_name = node->name;
-    mat4 bone_transform;
+    mat4 bone_transform = GLM_MAT4_IDENTITY_INIT;
+    assert(node != NULL && node->transformation != NULL);
     glm_mat4_copy(node->transformation, bone_transform);
-
-    printf("%s\n", node_name);
 
     struct Bone bone = seel_find_bone(animation, node_name);
 
@@ -198,6 +202,8 @@ void seel_update_animation(struct Animator *animator, float delta_time)
             animator->current_time = 0.0;
             animator->inter_time = 0.0;
         }
+
+        // print_debug(animator, animator->current_animation, &animator->current_animation->root_node);
 
         seel_calculate_bone_transform(animator, &animator->current_animation->root_node, GLM_MAT4_IDENTITY, animator->current_animation, animator->current_time);
     }

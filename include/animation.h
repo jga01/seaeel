@@ -99,6 +99,7 @@ void seel_generate_bone_tree(struct AssimpNodeData *parent, const struct aiNode 
 struct Animation seel_animation_create(const char *path, struct Model *model)
 {
     struct Animation animation = {0};
+    memset(&animation, 0, sizeof(struct Animation));
 
     const struct aiScene *scene = aiImportFile(path, aiProcess_Triangulate);
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
