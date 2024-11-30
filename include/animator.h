@@ -203,8 +203,6 @@ void seel_update_animation(struct Animator *animator, float delta_time)
             animator->inter_time = 0.0;
         }
 
-        // print_debug(animator, animator->current_animation, &animator->current_animation->root_node);
-
         seel_calculate_bone_transform(animator, &animator->current_animation->root_node, GLM_MAT4_IDENTITY, animator->current_animation, animator->current_time);
     }
 }
