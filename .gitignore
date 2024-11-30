@@ -1,0 +1,44 @@
+# Ignore object files, libraries, and executables
+*.o
+*.a
+*.so
+*.dll
+*.dylib
+*.exe
+*.out
+
+# Ignore build directories
+/build/
+bin/
+dist/
+
+# Ignore system-generated files
+.DS_Store
+Thumbs.db
+
+# Ignore editor and IDE-specific files
+.vscode/
+*.code-workspace
+.idea/
+*.iml
+
+# Ignore log files
+*.log
+
+# Ignore dependency files
+*.d
+*.dep
+
+# Ignore generated files
+*.gch
+*.swp
+
+# Ignore archives
+*.zip
+*.tar
+*.gz
+*.7z
+*.rar
+
+# Ignore specific OpenGL-related cache files (if any)
+.cache/
