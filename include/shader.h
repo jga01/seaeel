@@ -68,7 +68,7 @@ static unsigned int seel_shader_make(const char *shader_path, int type)
     char *shader_source = seel_shader_read_file(shader_path);
 
     shader = glCreateShader(type);
-    glShaderSource(shader, 1, &shader_source, NULL);
+    glShaderSource(shader, 1, (const GLchar * const *)&shader_source, NULL);
     glCompileShader(shader);
 
     int success;

@@ -15,6 +15,7 @@
 #include "model.h"
 #include "light.h"
 #include "animator.h"
+#include "texture.h"
 
 struct Renderer
 {
@@ -118,6 +119,78 @@ void seel_renderer_draw_scene_node(struct Renderer *renderer, struct Model *mode
 
     /* Draw model */
     seel_model_draw(model, shader);
+}
+
+void seel_renderer_draw_billboard(struct Shader *shader, struct Texture *texture, vec3 position, float scale, vec3 color, struct Camera *camera)
+{
+    mat4 view, projection = GLM_MAT4_IDENTITY_INIT;
+    seel_camera_get_view_matrix(camera, view);
+    glm_perspective(glm_rad(camera->fov), camera->aspect_ratio, camera->near_clip, camera->far_clip, projection);
+
+    vec3 look_dir;
+    glm_vec3_sub(camera->position, position, look_dir);
+    glm_vec3_normalize(look_dir);
+
+    mat4 model = GLM_MAT4_IDENTITY_INIT;
+    glm_translate(model, position);
+
+    vec3 right = {1.0f, 0.0f, 0.0f};
+    vec3 up = {0.0f, 1.0f, 0.0f};
+    vec3 forward;
+    glm_vec3_cross(up, look_dir, right);
+    glm_vec3_normalize(right);
+    glm_vec3_cross(look_dir, right, up);
+    glm_vec3_normalize(up);
+
+    model[0][0] = right[0] * scale;
+    model[0][1] = right[1] * scale;
+    model[0][2] = right[2] * scale;
+    model[1][0] = up[0] * scale;
+    model[1][1] = up[1] * scale;
+    model[1][2] = up[2] * scale;
+    model[2][0] = look_dir[0] * scale;
+    model[2][1] = look_dir[1] * scale;
+    model[2][2] = look_dir[2] * scale;
+
+    mat4 mvp;
+    glm_mat4_mul(projection, view, mvp);
+    glm_mat4_mul(mvp, model, mvp);
+
+    unsigned int VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+
+    float vertices[] = {
+        // pos      // tex
+        -0.5f, -0.5f, 0.0f, 0.0f,
+        0.5f, -0.5f, 1.0f, 0.0f,
+        0.5f, 0.5f, 1.0f, 1.0f,
+        -0.5f, -0.5f, 0.0f, 0.0f,
+        0.5f, 0.5f, 1.0f, 1.0f,
+        -0.5f, 0.5f, 0.0f, 1.0f};
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+
+    seel_shader_use(shader);
+    seel_shader_set_mat4(shader, "mvp", &mvp[0][0]);
+    seel_shader_set_vec3(shader, "color", (vec3){color[0], color[1], color[2]});
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture->id);
+    seel_shader_set_int(shader, "billboardTexture", 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
 }
 
 void seel_renderer_set_clear_color(struct Renderer *renderer, vec3 color)

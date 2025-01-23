@@ -24,6 +24,7 @@ struct Camera
     float fov;
     float near_clip;
     float far_clip;
+    float aspect_ratio;
     float yaw;
     float pitch;
     float distance;
@@ -61,6 +62,7 @@ struct Camera seel_camera_create(struct CameraConfig *config)
     camera.pitch = config->pitch;
     camera.movement_speed = config->movement_speed;
     camera.mouse_sensitivity = config->mouse_sensitivity;
+    camera.aspect_ratio = config->aspect_ratio;
     camera.zoom = config->zoom;
     camera.invert_y = config->invert_y;
 

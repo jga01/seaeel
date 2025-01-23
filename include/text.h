@@ -72,6 +72,7 @@ void seel_render_text(struct Shader *shader, const char *text, float x, float y,
     seel_shader_use(shader);
     seel_shader_set_vec3(shader, "textColor", (vec3){color[0], color[1], color[2]});
     seel_shader_set_mat4(shader, "projection", &projection[0][0]);
+
     glActiveTexture(GL_TEXTURE0);
     glBindVertexArray(VAO);
 
@@ -106,7 +107,114 @@ void seel_render_text(struct Shader *shader, const char *text, float x, float y,
         glDrawArrays(GL_TRIANGLES, 0, 6);
         x += (ch.advance >> 6) * scale;
     }
+
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+
     glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glUseProgram(0);
+}
+
+void seel_render_text_billboard(struct Shader *shader, const char *text, vec3 position, float scale,
+                                vec3 color, struct Camera *camera)
+{    
+    mat4 view, projection = GLM_MAT4_IDENTITY_INIT;
+    seel_camera_get_view_matrix(camera, view);
+    glm_perspective(glm_rad(camera->fov), camera->aspect_ratio, camera->near_clip, camera->far_clip, projection);
+
+    vec3 look_dir;
+    glm_vec3_sub(camera->position, position, look_dir);
+    glm_vec3_normalize(look_dir);
+
+    mat4 model = GLM_MAT4_IDENTITY_INIT;
+    glm_translate(model, position);
+
+    vec3 right = {1.0f, 0.0f, 0.0f};
+    vec3 up = {0.0f, 1.0f, 0.0f};
+    vec3 forward;
+    glm_vec3_cross(up, look_dir, right);
+    glm_vec3_normalize(right);
+    glm_vec3_cross(look_dir, right, up);
+    glm_vec3_normalize(up);
+
+    model[0][0] = right[0];
+    model[0][1] = right[1];
+    model[0][2] = right[2];
+    model[1][0] = up[0];
+    model[1][1] = up[1];
+    model[1][2] = up[2];
+    model[2][0] = look_dir[0];
+    model[2][1] = look_dir[1];
+    model[2][2] = look_dir[2];
+
+    mat4 mvp;
+    glm_mat4_mul(projection, view, mvp);
+    glm_mat4_mul(mvp, model, mvp);
+
+    unsigned int VAO, VBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    seel_shader_use(shader);
+    seel_shader_set_vec3(shader, "textColor", (vec3){color[0], color[1], color[2]});
+    seel_shader_set_mat4(shader, "mvp", &mvp[0][0]);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindVertexArray(VAO);
+
+    float total_width = 0.0f;
+    const char *ptr = text;
+    for (unsigned int i = 0; i < strlen(text); i++)
+    {
+        struct Character ch = characters[(unsigned char)ptr[i]];
+        total_width += (ch.advance >> 6) * scale;
+    }
+
+    float x = -total_width / 2.0f;
+    float y = 0.0f;
+    ptr = text;
+
+    for (unsigned int i = 0; i < strlen(text); i++)
+    {
+        unsigned char c = *(ptr++);
+        struct Character ch = characters[c];
+
+        float xpos = x + ch.bearing[0] * scale;
+        float ypos = y - (ch.size[1] - ch.bearing[1]) * scale;
+        float w = ch.size[0] * scale;
+        float h = ch.size[1] * scale;
+
+        float vertices[6][4] = {
+            {xpos, ypos + h, 0.0f, 0.0f},
+            {xpos, ypos, 0.0f, 1.0f},
+            {xpos + w, ypos, 1.0f, 1.0f},
+            {xpos, ypos + h, 0.0f, 0.0f},
+            {xpos + w, ypos, 1.0f, 1.0f},
+            {xpos + w, ypos + h, 1.0f, 0.0f}};
+
+        glBindTexture(GL_TEXTURE_2D, ch.texture_id);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        x += (ch.advance >> 6) * scale;
+    }
+
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glUseProgram(0);
 }

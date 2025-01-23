@@ -1,6 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <string.h>
 #include <stdbool.h>
 
 #include "cglm/cglm.h"
@@ -32,6 +33,7 @@ struct CameraConfig
     float fov;
     float near_clip;
     float far_clip;
+    float aspect_ratio;
     float movement_speed;
     float mouse_sensitivity;
     float zoom;
@@ -77,6 +79,7 @@ void seel_config_init_defaults(struct EngineConfig *engine_config)
     engine_config->camera.far_clip = 100.0f;
     engine_config->camera.movement_speed = 2.5f;
     engine_config->camera.mouse_sensitivity = 0.1f;
+    engine_config->camera.aspect_ratio = (float)engine_config->window.width / (float)engine_config->window.height;
     engine_config->camera.invert_y = false;
     engine_config->camera.zoom = 45.0f;
     glm_vec3_copy((vec3){0.0f, 0.0f, 3.0f}, engine_config->camera.initial_position);
